@@ -26,7 +26,7 @@
       header h1 { margin: 0; font-size: 16px; font-weight: 600; }
 
       .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-      .toolbar input[type="text"], .toolbar button, .toolbar input[type="file"], .toolbar label {
+      .toolbar label, .toolbar button {
         background: #0f1722; color: #e8edf2; border: 1px solid #233143; border-radius: 8px; padding: 8px 10px; font-size: 13px;
       }
       .toolbar button { cursor: pointer; }
@@ -38,7 +38,8 @@
 
       .panel { padding: 12px 12px; }
       .search-row { display: flex; gap: 8px; align-items: center; }
-      .search-row input { flex: 1; }
+      .search-row input { flex: 1; background: #0f1722; color: #e8edf2; border: 1px solid #233143; border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+      .search-row button { background: #0f1722; color: #e8edf2; border: 1px solid #233143; border-radius: 8px; padding: 8px 10px; font-size: 13px; cursor: pointer; }
 
       .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
       .chip { background: #0f1722; border: 1px solid #233143; padding: 6px 10px; border-radius: 999px; font-size: 12px; cursor: pointer; }
@@ -68,9 +69,6 @@
         <h1>Live Sports TV (Cricfy-style)</h1>
         <div class="toolbar">
           <label title="Nepal-first sorting"><input id="nepalFirst" type="checkbox" checked /> Nepal-first</label>
-          <input id="altUrl" type="text" placeholder="Paste .m3u URL (optional)" size="34" />
-          <button id="loadUrlBtn" type="button">Load URL</button>
-          <input id="localFile" type="file" accept=".m3u,.m3u8,text/plain" />
           <button id="reloadBtn" type="button">Reload</button>
         </div>
         <div id="status" class="muted">Status: Ready</div>
@@ -106,7 +104,7 @@
             <summary>Notes: legal streams, CORS and geo</summary>
             <ul>
               <li><strong>Legal only</strong>: Uses channels listed by <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noreferrer noopener">iptv-org/iptv</a> (MIT).</li>
-              <li><strong>CORS</strong>: If blocked fetching the playlist, host the .m3u locally or use your own proxy. See README.</li>
+              <li><strong>CORS</strong>: If blocked fetching the playlist, consider adding a small proxy as in README.</li>
               <li><strong>Geo</strong>: Some streams may be region-limited. For Nepal, keep Nepal-first enabled and prefer NP channels.</li>
             </ul>
           </details>
@@ -123,12 +121,10 @@
 
     <script>
       const DEFAULT_PLAYLIST_URL = 'https://raw.githubusercontent.com/iptv-org/iptv/main/categories/sports.m3u';
+      const CHANNELS_JSON_URL = 'https://iptv-org.github.io/api/channels.json';
 
       const statusEl = document.getElementById('status');
       const nepalFirstEl = document.getElementById('nepalFirst');
-      const altUrlEl = document.getElementById('altUrl');
-      const loadUrlBtn = document.getElementById('loadUrlBtn');
-      const localFileEl = document.getElementById('localFile');
       const reloadBtn = document.getElementById('reloadBtn');
 
       const searchEl = document.getElementById('search');
@@ -148,11 +144,9 @@
         statusEl.innerHTML = (isError ? '<span class="danger">' : '<span class="success">') + message + '</span>';
       }
 
-      // Flags for quick country visualization
       const CC_TO_FLAG = { NP: '🇳🇵', IN: '🇮🇳', BD: '🇧🇩', PK: '🇵🇰', LK: '🇱🇰', BT: '🇧🇹', US: '🇺🇸', GB: '🇬🇧', AU: '🇦🇺', CA: '🇨🇦' };
       function flagFor(cc) { return (CC_TO_FLAG[(cc || '').toUpperCase()] || ''); }
 
-      // Parse EXTINF attributes and name
       function parseExtInfLine(line) {
         const attrs = {};
         const attrRegex = /([a-zA-Z0-9\-]+)="(.*?)"/g;
@@ -213,7 +207,7 @@
       // Category filter
       let activeCategory = 'all';
       function matchCategory(entry) {
-        const name = entry.name.toLowerCase();
+        const name = entry.__displayName.toLowerCase();
         if (activeCategory === 'cricket') return /cricket|willow|star sports|ten sports/.test(name);
         if (activeCategory === 'football') return /football|soccer|bein|premier|laliga|bundesliga|serie a/.test(name);
         return true;
@@ -221,12 +215,26 @@
 
       // Data + rendering
       let allEntries = [];
+      let channelIdToMeta = new Map(); // id -> { name, logo, country }
+      let firstAutoPlayed = false;
+
+      function hydrateEntriesWithMeta(entries) {
+        return entries.map(e => {
+          const id = e.attrs['tvg-id'] || '';
+          const meta = id && channelIdToMeta.get(id);
+          const displayName = (meta && meta.name) || e.name;
+          const logo = (meta && meta.logo) || e.attrs['tvg-logo'] || '';
+          const country = (meta && meta.country) || (e.attrs['tvg-country'] || '').split(';')[0].toUpperCase();
+          return { ...e, __id: id, __displayName: displayName, __logo: logo, __country: country };
+        });
+      }
 
       function renderList() {
         const q = (searchEl.value || '').trim().toLowerCase();
         const onlyFav = onlyFavEl.checked;
-        const entries = sortForNepal(allEntries, nepalFirstEl.checked).filter(e => {
-          if (q && !(`${e.name} ${(e.attrs['tvg-country']||'')}`.toLowerCase().includes(q))) return false;
+        const hydrated = hydrateEntriesWithMeta(allEntries);
+        const entries = sortForNepal(hydrated, nepalFirstEl.checked).filter(e => {
+          if (q && !(`${e.__displayName} ${(e.__country||'')}`.toLowerCase().includes(q))) return false;
           if (!matchCategory(e)) return false;
           if (onlyFav && !isFav(e.url)) return false;
           return true;
@@ -238,16 +246,14 @@
           return;
         }
 
-        entries.forEach((entry) => {
-          const country = (entry.attrs['tvg-country'] || '').split(';')[0].toUpperCase();
-          const logo = entry.attrs['tvg-logo'] || '';
+        entries.forEach((entry, idx) => {
           const card = document.createElement('div');
           card.className = 'channel-card';
           card.innerHTML = `
-            <img class="channel-logo" src="${logo}" alt="logo" onerror="this.src='';" />
+            <img class="channel-logo" src="${entry.__logo}" alt="logo" onerror="this.src='';" />
             <div>
-              <div class="channel-title">${flagFor(country)} ${entry.name}</div>
-              <div class="channel-meta">${country || '—'} ${entry.attrs['group-title'] ? '• ' + entry.attrs['group-title'] : ''}</div>
+              <div class="channel-title">${flagFor(entry.__country)} ${entry.__displayName}</div>
+              <div class="channel-meta">${entry.__country || '—'} ${entry.attrs['group-title'] ? '• ' + entry.attrs['group-title'] : ''}</div>
             </div>
             <div class="star ${isFav(entry.url) ? '' : 'inactive'}" title="Toggle favorite">★</div>
           `;
@@ -262,70 +268,64 @@
 
           card.addEventListener('click', () => playEntry(entry));
           channelListEl.appendChild(card);
+
+          if (!firstAutoPlayed && idx === 0) {
+            firstAutoPlayed = true;
+            playEntry(entry);
+          }
         });
       }
 
       function playEntry(entry) {
-        nowPlayingEl.textContent = `Now playing: ${entry.name}`;
+        nowPlayingEl.textContent = `Now playing: ${entry.__displayName}`;
         player.src({ src: entry.url, type: 'application/x-mpegURL' });
         player.play().catch(() => {});
+      }
+
+      async function fetchChannelsMeta() {
+        try {
+          const res = await fetch(CHANNELS_JSON_URL, { mode: 'cors' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const arr = await res.json();
+          // arr items like: { id, name, logo, country, ... }
+          channelIdToMeta = new Map(arr.map(x => [x.id, { name: x.name, logo: x.logo || '', country: (x.country || '').toUpperCase() }]));
+        } catch (e) {
+          console.warn('Failed to load channels.json, falling back to M3U attrs');
+          channelIdToMeta = new Map();
+        }
       }
 
       async function loadPlaylistFromUrl(url) {
         setStatus('Fetching playlist…');
         try {
+          await fetchChannelsMeta();
           const res = await fetch(url, { mode: 'cors' });
           if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + res.statusText);
           const text = await res.text();
           allEntries = parseM3U(text);
           setStatus(`Loaded ${allEntries.length} HLS channels ✅`);
+          firstAutoPlayed = false;
           renderList();
         } catch (err) {
           console.error(err);
           setStatus('Failed to fetch playlist. See console for details.', true);
-          alert('Could not fetch the playlist.\n\nPossible reasons: CORS, network, or URL issue.\nTry loading a local .m3u file or your own hosted URL.');
+          alert('Could not fetch the playlist. Possible reasons: CORS, network, or URL issue.');
         }
-      }
-
-      function loadPlaylistFromFile(file) {
-        if (!file) return;
-        setStatus('Reading local playlist…');
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const text = String(reader.result || '');
-            allEntries = parseM3U(text);
-            setStatus(`Loaded ${allEntries.length} channels from local file ✅`);
-            renderList();
-          } catch (e) {
-            console.error(e);
-            setStatus('Failed to parse local playlist', true);
-            alert('Could not parse the selected file as M3U.');
-          }
-        };
-        reader.onerror = () => setStatus('Failed to read local file', true);
-        reader.readAsText(file);
       }
 
       // Events
       reloadBtn.addEventListener('click', () => loadPlaylistFromUrl(DEFAULT_PLAYLIST_URL));
-      loadUrlBtn.addEventListener('click', () => {
-        const url = (altUrlEl.value || '').trim();
-        if (!url) { alert('Please paste a .m3u URL first.'); return; }
-        loadPlaylistFromUrl(url);
-      });
-      localFileEl.addEventListener('change', (e) => loadPlaylistFromFile(e.target.files && e.target.files[0]));
-
-      nepalFirstEl.addEventListener('change', renderList);
-      searchEl.addEventListener('input', renderList);
-      clearSearchBtn.addEventListener('click', () => { searchEl.value = ''; renderList(); });
-      onlyFavEl.addEventListener('change', renderList);
+      nepalFirstEl.addEventListener('change', () => { firstAutoPlayed = false; renderList(); });
+      searchEl.addEventListener('input', () => { firstAutoPlayed = false; renderList(); });
+      clearSearchBtn.addEventListener('click', () => { searchEl.value = ''; firstAutoPlayed = false; renderList(); });
+      onlyFavEl.addEventListener('change', () => { firstAutoPlayed = false; renderList(); });
 
       document.querySelectorAll('.chip').forEach(ch => {
         ch.addEventListener('click', () => {
           document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
           ch.classList.add('active');
           activeCategory = ch.getAttribute('data-cat');
+          firstAutoPlayed = false;
           renderList();
         });
       });
