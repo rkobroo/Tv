@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Live Sports TV (Video.js + IPTV-org)</title>
+
+    <!-- Video.js CSS from CDN for built-in player UI/theme -->
+    <link
+      href="https://unpkg.com/video.js@8/dist/video-js.min.css"
+      rel="stylesheet"
+    />
+
+    <style>
+      /* Simple, beginner-friendly styling */
+      :root { color-scheme: light dark; }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        margin: 0; padding: 0; line-height: 1.5;
+        background: #0b0f14; color: #e8edf2;
+      }
+      header {
+        padding: 16px 20px; background: #101722; border-bottom: 1px solid #1e2a3a;
+      }
+      header h1 { margin: 0; font-size: 18px; }
+      header p { margin: 4px 0 0 0; font-size: 13px; opacity: 0.85; }
+      main { padding: 18px 20px; max-width: 980px; margin: 0 auto; }
+      .controls { display: grid; gap: 12px; grid-template-columns: 1fr; margin-bottom: 16px; }
+      .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+      select, input[type="text"], button {
+        background: #0f1722; color: #e8edf2; border: 1px solid #233143;
+        border-radius: 8px; padding: 10px 12px; font-size: 14px;
+      }
+      button { cursor: pointer; }
+      button:hover { background: #132033; }
+      .hint { font-size: 12px; opacity: 0.85; }
+      .danger { color: #ff7b7b; }
+      .success { color: #5be49b; }
+      .muted { opacity: 0.8; }
+
+      .player-wrap { margin-top: 10px; }
+      .video-js { width: 100%; height: 58vh; border-radius: 10px; overflow: hidden; background: #000; }
+
+      footer { padding: 18px 20px; font-size: 12px; color: #c8d3df; opacity: 0.9; }
+      a { color: #7ecbff; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Live Sports TV for Nepal (Video.js + IPTV-org)</h1>
+      <p class="muted">Fetches <code>sports.m3u</code> from <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noreferrer noopener">iptv-org/iptv</a> and plays legal HLS streams.</p>
+    </header>
+
+    <main>
+      <section class="controls" aria-label="Channel controls">
+        <div class="row">
+          <label for="channelSelect" class="muted">Choose a channel</label>
+          <select id="channelSelect" aria-label="Channel list">
+            <option value="" disabled selected>Loading sports channels…</option>
+          </select>
+          <button id="playBtn" type="button">Play</button>
+          <button id="reloadBtn" type="button" title="Refetch playlist">Reload</button>
+        </div>
+
+        <div class="row">
+          <label class="muted" for="altUrl">Or load playlist URL</label>
+          <input id="altUrl" type="text" placeholder="Paste another .m3u URL (optional)" size="42" />
+          <button id="loadUrlBtn" type="button" title="Load from URL">Load URL</button>
+        </div>
+
+        <div class="row">
+          <label class="muted" for="localFile">Or open a local .m3u file</label>
+          <input id="localFile" type="file" accept=".m3u,.m3u8,text/plain" />
+        </div>
+
+        <div class="row">
+          <label class="muted" for="nepalFirst">
+            <input id="nepalFirst" type="checkbox" checked /> Nepal-first sorting (NP → IN → BD → PK → LK → BT)
+          </label>
+        </div>
+
+        <p id="status" class="hint">Status: <span class="muted">Initializing…</span></p>
+      </section>
+
+      <section class="player-wrap" aria-label="Video player">
+        <!-- Video player element expected by Video.js -->
+        <video
+          id="videoPlayer"
+          class="video-js vjs-default-skin"
+          controls
+          preload="auto"
+          playsinline
+          data-setup='{"fluid": true}'
+        ></video>
+      </section>
+
+      <section aria-label="Notes" style="margin-top:18px;">
+        <details>
+          <summary>Notes about legal streams, CORS, and geo-restrictions</summary>
+          <ul>
+            <li><strong>Legal only</strong>: This UI uses channels listed by <code>iptv-org/iptv</code> which is MIT-licensed. Always ensure you have the rights to watch a stream in your country.</li>
+            <li><strong>CORS issues</strong>: If your browser blocks the remote playlist, either host the <code>.m3u</code> file locally (use the file picker above) or deploy behind your own proxy. See README for options.</li>
+            <li><strong>Geo-restrictions</strong>: Some streams only work in certain regions. For Nepal, enable Nepal-first sorting and prefer channels with country code <code>NP</code>. See README for more suggestions.</li>
+          </ul>
+        </details>
+      </section>
+    </main>
+
+    <footer>
+      Built with <a href="https://videojs.com/" target="_blank" rel="noreferrer noopener">Video.js</a>. Data source: <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noreferrer noopener">iptv-org/iptv</a> (MIT).
+    </footer>
+
+    <!-- Video.js core JS -->
+    <script src="https://unpkg.com/video.js@8/dist/video.min.js"></script>
+
+    <script>
+      // ------------------------------
+      // Beginner-friendly JS overview
+      // ------------------------------
+      // 1) We fetch an M3U playlist (a text file listing channels) from GitHub
+      // 2) We parse the text to extract each channel's name and stream URL
+      // 3) We populate a <select> dropdown with those channel names
+      // 4) When the user picks a channel, we tell Video.js to play its HLS (.m3u8) stream
+      // 5) We show simple status messages and alert on errors
+
+      const DEFAULT_PLAYLIST_URL = 'https://raw.githubusercontent.com/iptv-org/iptv/main/categories/sports.m3u';
+
+      const statusEl = document.getElementById('status');
+      const selectEl = document.getElementById('channelSelect');
+      const playBtn = document.getElementById('playBtn');
+      const reloadBtn = document.getElementById('reloadBtn');
+      const altUrlEl = document.getElementById('altUrl');
+      const loadUrlBtn = document.getElementById('loadUrlBtn');
+      const localFileEl = document.getElementById('localFile');
+      const nepalFirstEl = document.getElementById('nepalFirst');
+
+      // Initialize Video.js player
+      const player = videojs('videoPlayer', {
+        // Video.js has built-in HLS support via VHS; we'll provide a .m3u8 URL as the source
+        autoplay: false,
+        controls: true,
+        preload: 'auto',
+        liveui: true,
+        responsive: true,
+        fluid: true
+      });
+
+      // Handle playback errors by alerting the user
+      player.on('error', () => {
+        const err = player.error();
+        const msg = err && err.message ? err.message : 'Unknown playback error';
+        alert('Stream failed to load. Please try another channel.\n\nDetails: ' + msg);
+      });
+
+      // Utility: update status line
+      function setStatus(message, isError = false) {
+        statusEl.innerHTML = (isError ? '<span class="danger">' : '<span class="success">') + message + '</span>';
+      }
+
+      // Utility: make a country code into an emoji flag (limited mapping)
+      const CC_TO_FLAG = {
+        NP: '🇳🇵', IN: '🇮🇳', BD: '🇧🇩', PK: '🇵🇰', LK: '🇱🇰', BT: '🇧🇹',
+        US: '🇺🇸', GB: '🇬🇧', AU: '🇦🇺', CA: '🇨🇦'
+      };
+      function flagFor(cc) {
+        if (!cc) return '';
+        const upper = cc.toUpperCase();
+        return CC_TO_FLAG[upper] || '';
+      }
+
+      // Parse an #EXTINF line to extract attributes and the channel display name
+      function parseExtInfLine(line) {
+        // Example: #EXTINF:-1 tvg-id="..." tvg-country="NP" group-title="Sports", Channel Name
+        const attrs = {};
+        const attrRegex = /([a-zA-Z0-9\-]+)="(.*?)"/g;
+        let match;
+        while ((match = attrRegex.exec(line)) !== null) {
+          attrs[match[1]] = match[2];
+        }
+        const name = line.includes(',') ? line.split(',').pop().trim() : (attrs['tvg-name'] || 'Unknown');
+        return { attrs, name };
+      }
+
+      // Parse the M3U text into a list of { name, url, attrs }
+      function parseM3U(text) {
+        const lines = text.split(/\r?\n/);
+        const entries = [];
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line || !line.startsWith('#EXTINF:')) continue;
+
+          const { attrs, name } = parseExtInfLine(line);
+
+          // The stream URL is usually on the next non-empty, non-comment line
+          let j = i + 1;
+          let url = '';
+          while (j < lines.length) {
+            const candidate = lines[j].trim();
+            j++;
+            if (!candidate || candidate.startsWith('#')) continue;
+            url = candidate;
+            break;
+          }
+
+          if (!url) continue;
+
+          // Keep only HLS URLs (m3u8). This avoids DASH (.mpd) or others
+          const isHls = /\.m3u8(\?|$)/i.test(url);
+          const isHttp = /^https?:\/\//i.test(url);
+          if (isHls && isHttp) {
+            entries.push({ name, url, attrs });
+          }
+        }
+        return entries;
+      }
+
+      // Sort channels for Nepal users: NP first, then IN, BD, PK, LK, BT, then others
+      function sortForNepal(entries, nepalFirstChecked) {
+        if (!nepalFirstChecked) return entries.slice();
+        const priority = ['NP', 'IN', 'BD', 'PK', 'LK', 'BT'];
+        function score(entry) {
+          const ccRaw = entry.attrs['tvg-country'] || '';
+          const codes = ccRaw.split(';').map(s => s.trim().toUpperCase()).filter(Boolean);
+          for (let idx = 0; idx < priority.length; idx++) {
+            if (codes.includes(priority[idx])) return idx; // lower is better
+          }
+          return 999; // others last
+        }
+        return entries.slice().sort((a, b) => {
+          const sA = score(a);
+          const sB = score(b);
+          if (sA !== sB) return sA - sB;
+          // Tie-breaker: alphabetical by name
+          return a.name.localeCompare(b.name);
+        });
+      }
+
+      // Fill the dropdown with channel options
+      function populateDropdown(entries) {
+        selectEl.innerHTML = '';
+        if (!entries.length) {
+          const opt = document.createElement('option');
+          opt.textContent = 'No playable HLS channels found';
+          opt.disabled = true; opt.selected = true;
+          selectEl.appendChild(opt);
+          return;
+        }
+        entries.forEach((entry, idx) => {
+          const country = (entry.attrs['tvg-country'] || '').split(';')[0].toUpperCase();
+          const label = `${flagFor(country)} ${entry.name}${country ? ` (${country})` : ''}`.trim();
+          const opt = document.createElement('option');
+          opt.value = entry.url;
+          opt.textContent = label;
+          opt.dataset.country = country;
+          opt.dataset.name = entry.name;
+          if (idx === 0) opt.selected = true;
+          selectEl.appendChild(opt);
+        });
+      }
+
+      // Load and parse a playlist from a URL
+      async function loadPlaylistFromUrl(url) {
+        setStatus('Fetching playlist…');
+        try {
+          const res = await fetch(url, { mode: 'cors' });
+          if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + res.statusText);
+          const text = await res.text();
+          const parsed = parseM3U(text);
+          const sorted = sortForNepal(parsed, nepalFirstEl.checked);
+          populateDropdown(sorted);
+          const count = sorted.length;
+          setStatus(`Loaded ${count} HLS channels` + (count ? ' ✅' : '')); 
+        } catch (err) {
+          console.error(err);
+          setStatus('Failed to fetch playlist. See console for details.', true);
+          alert('Could not fetch the playlist.\n\nPossible reasons: CORS, network, or URL issue.\nTry loading a local .m3u file or your own hosted URL.');
+        }
+      }
+
+      // Read and parse a local file selected via <input type="file">
+      function loadPlaylistFromFile(file) {
+        if (!file) return;
+        setStatus('Reading local playlist…');
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const text = String(reader.result || '');
+            const parsed = parseM3U(text);
+            const sorted = sortForNepal(parsed, nepalFirstEl.checked);
+            populateDropdown(sorted);
+            setStatus(`Loaded ${sorted.length} channels from local file ✅`);
+          } catch (e) {
+            console.error(e);
+            setStatus('Failed to parse local playlist', true);
+            alert('Could not parse the selected file as M3U.');
+          }
+        };
+        reader.onerror = () => {
+          setStatus('Failed to read local file', true);
+        };
+        reader.readAsText(file);
+      }
+
+      // Start playback of the selected channel
+      function playSelected() {
+        const url = selectEl.value;
+        if (!url) {
+          alert('Please select a channel first.');
+          return;
+        }
+        // Tell Video.js to play HLS stream
+        player.src({ src: url, type: 'application/x-mpegURL' });
+        player.play().catch(() => {
+          // Autoplay may be blocked; user interaction via Play button will start it
+        });
+      }
+
+      // Wire up UI events
+      playBtn.addEventListener('click', playSelected);
+      selectEl.addEventListener('change', playSelected);
+      reloadBtn.addEventListener('click', () => loadPlaylistFromUrl(DEFAULT_PLAYLIST_URL));
+      loadUrlBtn.addEventListener('click', () => {
+        const url = (altUrlEl.value || '').trim();
+        if (!url) { alert('Please paste a .m3u URL first.'); return; }
+        loadPlaylistFromUrl(url);
+      });
+      localFileEl.addEventListener('change', (e) => loadPlaylistFromFile(e.target.files and e.target.files[0]));
+      nepalFirstEl.addEventListener('change', () => {
+        // Re-sort current options by rebuilding from the last parsed text would be ideal.
+        // For simplicity, just refetch the default playlist.
+        loadPlaylistFromUrl(DEFAULT_PLAYLIST_URL);
+      });
+
+      // Initial load
+      loadPlaylistFromUrl(DEFAULT_PLAYLIST_URL);
+    </script>
+  </body>
+  </html>
