@@ -237,7 +237,7 @@
           const card = document.createElement('div');
           card.className = 'channel-card';
           card.innerHTML = `
-            <img class="channel-logo" src="${entry.__logo}" alt="logo" onerror="this.src='';" />
+            <img class="channel-logo" src="${entry.__logo}" alt="logo" onerror="this.style.display='none';" />
             <div>
               <div class="channel-title">${flagFor(entry.__country)} ${entry.__displayName}</div>
               <div class="channel-meta">${entry.__country || '—'}</div>
@@ -265,7 +265,8 @@
 
       function playEntry(entry) {
         nowPlayingEl.textContent = `Now playing: ${entry.__displayName}`;
-        player.src({ src: entry.url, type: 'application/x-mPEGURL'.toLowerCase() });
+        const proxied = `/api/hls?url=${encodeURIComponent(entry.url)}`;
+        player.src({ src: proxied, type: 'application/x-mpegURL' });
         player.play().catch(() => {});
       }
 
