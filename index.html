@@ -135,6 +135,12 @@
       const nowPlayingEl = document.getElementById('nowPlaying');
 
       const player = videojs('videoPlayer', { autoplay: false, controls: true, preload: 'auto', liveui: true, responsive: true, fluid: true });
+      player.addClass('vjs-live');
+      player.liveTracker && player.liveTracker.on('liveedgechange', () => {
+        if (player.liveTracker.isLive()) {
+          try { player.liveTracker.seekToLiveEdge(); } catch {}
+        }
+      });
       player.on('error', () => {
         const err = player.error();
         const msg = err && err.message ? err.message : 'Unknown playback error';
@@ -162,6 +168,7 @@
       let allEntries = [];
       let channelIdToMeta = new Map(); // id -> { name, logo, country }
       let firstAutoPlayed = false;
+      let countryCodeToName = new Map();
 
       function hydrate(streams) {
         const out = [];
@@ -240,7 +247,7 @@
             <img class="channel-logo" src="${entry.__logo}" alt="logo" onerror="this.style.display='none';" />
             <div>
               <div class="channel-title">${flagFor(entry.__country)} ${entry.__displayName}</div>
-              <div class="channel-meta">${entry.__country || '—'}</div>
+              <div class="channel-meta">${entry.__country ? (countryCodeToName.get(entry.__country) || entry.__country) : '—'}</div>
             </div>
             <div class="star ${isFav(entry.url) ? '' : 'inactive'}" title="Toggle favorite">★</div>
           `;
@@ -272,13 +279,22 @@
 
       async function fetchChannelsMeta() {
         try {
-          const res = await fetch(CHANNELS_JSON_URL, { mode: 'cors' });
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          const arr = await res.json();
+          const [channelsRes, countriesRes] = await Promise.all([
+            fetch(CHANNELS_JSON_URL, { mode: 'cors' }),
+            fetch('https://iptv-org.github.io/api/countries.json', { mode: 'cors' })
+          ]);
+          if (!channelsRes.ok) throw new Error('channels HTTP ' + channelsRes.status);
+          const arr = await channelsRes.json();
+          countryCodeToName = new Map();
+          if (countriesRes.ok) {
+            const countries = await countriesRes.json();
+            countries.forEach(c => { if (c.code) countryCodeToName.set((c.code || '').toUpperCase(), c.name || c.code); });
+          }
           channelIdToMeta = new Map(arr.map(x => [x.id, { name: x.name, logo: x.logo || '', country: (x.country || '').toUpperCase() }]));
         } catch (e) {
-          console.warn('Failed to load channels.json');
+          console.warn('Failed to load channels/countries json');
           channelIdToMeta = new Map();
+          countryCodeToName = new Map();
         }
       }
 
