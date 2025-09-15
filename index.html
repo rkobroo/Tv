@@ -326,7 +326,7 @@
         if (!url) { alert('Please paste a .m3u URL first.'); return; }
         loadPlaylistFromUrl(url);
       });
-      localFileEl.addEventListener('change', (e) => loadPlaylistFromFile(e.target.files and e.target.files[0]));
+      localFileEl.addEventListener('change', (e) => loadPlaylistFromFile(e.target.files && e.target.files[0]));
       nepalFirstEl.addEventListener('change', () => {
         // Re-sort current options by rebuilding from the last parsed text would be ideal.
         // For simplicity, just refetch the default playlist.
