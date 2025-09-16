@@ -134,7 +134,24 @@
       const onlyFavEl = document.getElementById('onlyFav');
       const nowPlayingEl = document.getElementById('nowPlaying');
 
-      const player = videojs('videoPlayer', { autoplay: false, controls: true, preload: 'auto', liveui: true, responsive: true, fluid: true });
+      const player = videojs('videoPlayer', {
+        autoplay: false,
+        controls: true,
+        preload: 'auto',
+        liveui: true,
+        responsive: true,
+        fluid: true,
+        html5: {
+          vhs: {
+            lowLatencyMode: true,
+            enableLowInitialPlaylist: true,
+            fastQualityChange: true,
+            smoothQualityChange: true,
+            limitRenditionByPlayerDimensions: true,
+            bandwidthInitial: 500000
+          }
+        }
+      });
       player.addClass('vjs-live');
       player.liveTracker && player.liveTracker.on('liveedgechange', () => {
         if (player.liveTracker.isLive()) {
@@ -159,7 +176,7 @@
       let activeCategory = 'all';
       function matchCategory(entry) {
         const name = entry.__displayName.toLowerCase();
-        if (activeCategory === 'cricket') return /cricket|willow|star sports|ten sports/.test(name);
+        if (activeCategory === 'cricket') return /cricket|willow|star sports|sony sports|sony ten/.test(name);
         if (activeCategory === 'football') return /football|soccer|bein|premier|laliga|bundesliga|serie a/.test(name);
         return true;
       }
@@ -199,16 +216,36 @@
       }
 
       function sortForNepal(entries, enabled) {
-        if (!enabled) return entries.slice();
-        const priority = ['NP', 'IN', 'BD', 'PK', 'LK', 'BT'];
-        const score = (entry) => {
-          const cc = (entry.__country || '').toUpperCase();
-          const idx = priority.indexOf(cc);
+        const priorityNames = [
+          /\bsony\s*liv\b/i,
+          /\bsony\s*sports?\b/i,
+          /\bsony\s*ten\s*1\b/i,
+          /\bsony\s*ten\s*2\b/i,
+          /\bsony\s*ten\s*3\b/i,
+          /\bsony\s*ten\s*4\b/i,
+          /\bsony\s*ten\s*5\b/i,
+          /\bstar\s*sports?\b/i
+        ];
+        function nameScore(n) {
+          for (let i = 0; i < priorityNames.length; i++) {
+            if (priorityNames[i].test(n)) return i; // lower is better
+          }
+          return 999;
+        }
+        function countryScore(cc) {
+          const order = ['NP', 'IN', 'BD', 'PK', 'LK', 'BT'];
+          const idx = order.indexOf((cc || '').toUpperCase());
           return idx >= 0 ? idx : 999;
-        };
+        }
         return entries.slice().sort((a, b) => {
-          const sa = score(a), sb = score(b);
-          return sa === sb ? a.__displayName.localeCompare(b.__displayName) : sa - sb;
+          const nA = nameScore(a.__displayName);
+          const nB = nameScore(b.__displayName);
+          if (nA !== nB) return nA - nB;
+          if (!enabled) return a.__displayName.localeCompare(b.__displayName);
+          const cA = countryScore(a.__country);
+          const cB = countryScore(b.__country);
+          if (cA !== cB) return cA - cB;
+          return a.__displayName.localeCompare(b.__displayName);
         });
       }
 
@@ -273,6 +310,7 @@
       function playEntry(entry) {
         nowPlayingEl.textContent = `Now playing: ${entry.__displayName}`;
         const proxied = `/api/hls?url=${encodeURIComponent(entry.url)}`;
+        try { player.reset(); } catch {}
         player.src({ src: proxied, type: 'application/x-mpegURL' });
         player.play().catch(() => {});
       }
