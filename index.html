@@ -187,6 +187,25 @@
       let firstAutoPlayed = false;
       let countryCodeToName = new Map();
 
+      function slugifyName(name) {
+        return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      }
+      function buildLogoCandidates(name, id, country, metaLogo) {
+        const base = 'https://raw.githubusercontent.com/iptv-org/logos/master';
+        const slug = slugifyName(name);
+        const cc = (country || '').toUpperCase();
+        const candidates = [];
+        if (metaLogo) candidates.push(metaLogo);
+        if (id) {
+          candidates.push(`${base}/${id}.png`, `${base}/${id}.svg`);
+        }
+        if (slug) {
+          candidates.push(`${base}/${slug}.png`, `${base}/${slug}.svg`);
+          if (cc) candidates.push(`${base}/${cc}/${slug}.png`, `${base}/${cc}/${slug}.svg`);
+        }
+        return candidates;
+      }
+
       function hydrate(streams) {
         const out = [];
         const seen = new Set();
@@ -202,13 +221,15 @@
           const country = (meta && meta.country) || '';
           const key = id || url;
           if (seen.has(key)) continue; seen.add(key);
+          const logoCandidates = buildLogoCandidates(name, id, country, logo);
           out.push({
             name,
             url,
             attrs: { 'tvg-id': id, 'tvg-country': country, 'group-title': '' },
             __id: id,
             __displayName: name,
-            __logo: logo,
+            __logo: logoCandidates[0] || '',
+            __logoCandidates: logoCandidates.slice(1),
             __country: country
           });
         }
@@ -281,13 +302,25 @@
           const card = document.createElement('div');
           card.className = 'channel-card';
           card.innerHTML = `
-            <img class="channel-logo" src="${entry.__logo}" alt="logo" onerror="this.style.display='none';" />
+            <img class="channel-logo" alt="logo" />
             <div>
               <div class="channel-title">${flagFor(entry.__country)} ${entry.__displayName}</div>
               <div class="channel-meta">${entry.__country ? (countryCodeToName.get(entry.__country) || entry.__country) : '—'}</div>
             </div>
             <div class="star ${isFav(entry.url) ? '' : 'inactive'}" title="Toggle favorite">★</div>
           `;
+
+          const imgEl = card.querySelector('img.channel-logo');
+          const tryNext = () => {
+            if (entry.__logoCandidates && entry.__logoCandidates.length) {
+              const next = entry.__logoCandidates.shift();
+              imgEl.src = next;
+            } else {
+              imgEl.style.display = 'none';
+            }
+          };
+          imgEl.onerror = tryNext;
+          if (entry.__logo) { imgEl.src = entry.__logo; } else { tryNext(); }
 
           const starEl = card.querySelector('.star');
           starEl.addEventListener('click', (ev) => {
