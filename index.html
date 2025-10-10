@@ -183,17 +183,24 @@
             smoothQualityChange: true,
             experimentalBufferBasedABR: true, // Experimental but often better
             experimentalLLHLS: true, // Low latency HLS support
-            maxPlaylistRetries: 3,
-            playlistLoadTimeout: 10000,
-            segmentRequestTimeout: 10000,
-            manifestRequestTimeout: 10000
+            maxPlaylistRetries: 5, // Increased retries
+            playlistLoadTimeout: 15000, // Increased timeout
+            segmentRequestTimeout: 15000, // Increased timeout
+            manifestRequestTimeout: 15000, // Increased timeout
+            allowSeeksWithinUnsafeLiveWindow: true, // Allow seeks in live streams
+            handlePartialData: true // Handle partial segments
           }
         },
         // Additional performance settings
         loadingSpinner: false, // Disable default spinner for custom loading
         bigPlayButton: true,
         textTrackSettings: false,
-        errorDisplay: false // Custom error handling
+        errorDisplay: false, // Custom error handling
+        // Add more robust settings
+        liveTolerance: 15, // Allow 15 seconds of live tolerance
+        liveBackBuffer: 30, // Keep 30 seconds of buffer
+        liveMaxLatencyDurationCount: 3, // Max latency duration count
+        liveMaxLatencyDuration: 10 // Max latency duration in seconds
       });
       player.addClass('vjs-live');
       
@@ -210,26 +217,54 @@
 
       // Enhanced error handling with retry logic
       let retryCount = 0;
-      const MAX_RETRIES = 2;
+      const MAX_RETRIES = 3;
       
       player.on('error', (event) => {
         const err = player.error();
         const msg = err && err.message ? err.message : 'Unknown playback error';
         console.error('Player error:', err);
         
-        // Show custom error message instead of alert
-        setStatus(`Stream error: ${msg}`, true);
+        // More specific error messages
+        let errorMessage = 'Stream error: ';
+        if (err && err.code) {
+          switch (err.code) {
+            case 1:
+              errorMessage += 'Video loading aborted';
+              break;
+            case 2:
+              errorMessage += 'Network error - check your connection';
+              break;
+            case 3:
+              errorMessage += 'Video decoding error';
+              break;
+            case 4:
+              errorMessage += 'Video format not supported';
+              break;
+            default:
+              errorMessage += msg;
+          }
+        } else {
+          errorMessage += msg;
+        }
+        
+        setStatus(errorMessage, true);
         
         // Auto-retry for certain errors
         if (retryCount < MAX_RETRIES && err && err.code >= 2 && err.code <= 4) {
           retryCount++;
           setTimeout(() => {
-            setStatus(`Retrying... (${retryCount}/${MAX_RETRIES})`);
+            setStatus(`Retrying stream... (${retryCount}/${MAX_RETRIES})`, false, true);
             player.src(player.currentSrc());
-            player.play().catch(() => {});
-          }, 2000 * retryCount);
+            player.play().catch((e) => {
+              console.warn('Retry play failed:', e);
+              if (retryCount >= MAX_RETRIES) {
+                setStatus('Stream failed after retries. Try another channel.', true);
+              }
+            });
+          }, 3000 * retryCount); // Longer delay between retries
         } else {
           retryCount = 0;
+          setStatus('Stream failed. Try another channel or check your connection.', true);
         }
       });
 
@@ -240,9 +275,27 @@
       });
 
       // Loading state management
-      player.on('loadstart', () => setStatus('Loading stream...'));
+      player.on('loadstart', () => setStatus('Loading stream...', false, true));
       player.on('canplay', () => setStatus('Ready to play ✅'));
-      player.on('waiting', () => setStatus('Buffering...'));
+      player.on('canplaythrough', () => setStatus('Stream ready ✅'));
+      player.on('waiting', () => setStatus('Buffering...', false, true));
+      player.on('seeking', () => setStatus('Seeking...', false, true));
+      player.on('seeked', () => setStatus('Seek complete ✅'));
+      
+      // Quality change events
+      player.on('loadeddata', () => {
+        const tech = player.tech();
+        if (tech && tech.vhs && tech.vhs.playlists) {
+          const currentPlaylist = tech.vhs.playlists.media();
+          if (currentPlaylist) {
+            const bandwidth = currentPlaylist.attributes.BANDWIDTH;
+            if (bandwidth) {
+              const quality = Math.round(bandwidth / 1000);
+              setStatus(`Playing at ${quality}kbps ✅`);
+            }
+          }
+        }
+      });
 
       function setStatus(message, isError = false, isLoading = false) {
         const prefix = isLoading ? '<span class="loading-indicator"></span>' : '';
@@ -512,18 +565,43 @@
         });
       }
 
-      function playEntry(entry) {
+      // Test if a stream URL is accessible
+      async function testStreamUrl(url) {
+        try {
+          const response = await fetch(`/api/hls?url=${encodeURIComponent(url)}`, {
+            method: 'HEAD',
+            signal: AbortSignal.timeout(5000) // 5 second timeout
+          });
+          return response.ok;
+        } catch (e) {
+          console.warn('Stream test failed:', e);
+          return false;
+        }
+      }
+
+      async function playEntry(entry) {
         nowPlayingEl.textContent = `Now playing: ${entry.__displayName}`;
         const proxied = `/api/hls?url=${encodeURIComponent(entry.url)}`;
         
         // Reset retry count for new stream
         retryCount = 0;
         
+        // Test stream accessibility first
+        setStatus('Testing stream...', false, true);
+        const isAccessible = await testStreamUrl(entry.url);
+        
+        if (!isAccessible) {
+          setStatus('Stream not accessible. Try another channel.', true);
+          return;
+        }
+        
         try { 
           player.reset(); 
         } catch (e) {
           console.warn('Player reset failed:', e);
         }
+        
+        setStatus('Loading stream...', false, true);
         
         // Preload the stream for faster playback
         player.src({ 
