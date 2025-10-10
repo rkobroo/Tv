@@ -81,6 +81,7 @@
         <div class="toolbar">
           <label title="Nepal-first sorting"><input id="nepalFirst" type="checkbox" checked /> Nepal-first</label>
           <button id="reloadBtn" type="button">Reload</button>
+          <button id="retryBtn" type="button" style="display: none;">Retry</button>
         </div>
         <div id="status" class="muted">Status: Ready</div>
       </div>
@@ -138,10 +139,15 @@
       // Fallback URLs in case primary ones fail
       const FALLBACK_CHANNELS_URL = 'https://raw.githubusercontent.com/iptv-org/iptv/master/channels.json';
       const FALLBACK_STREAMS_URL = 'https://raw.githubusercontent.com/iptv-org/iptv/master/streams.json';
+      
+      // Additional fallback URLs
+      const FALLBACK_CHANNELS_URL2 = 'https://cdn.jsdelivr.net/gh/iptv-org/iptv@master/channels.json';
+      const FALLBACK_STREAMS_URL2 = 'https://cdn.jsdelivr.net/gh/iptv-org/iptv@master/streams.json';
 
       const statusEl = document.getElementById('status');
       const nepalFirstEl = document.getElementById('nepalFirst');
       const reloadBtn = document.getElementById('reloadBtn');
+      const retryBtn = document.getElementById('retryBtn');
 
       const searchEl = document.getElementById('search');
       const clearSearchBtn = document.getElementById('clearSearch');
@@ -259,24 +265,24 @@
         }
       }
 
-      // Fallback fetch function
-      async function fetchWithFallback(primaryUrl, fallbackUrl, options = {}) {
-        try {
-          const response = await fetch(primaryUrl, options);
-          if (response.ok) {
-            return response;
-          }
-          throw new Error(`Primary URL failed: ${response.status}`);
-        } catch (primaryError) {
-          console.warn('Primary URL failed, trying fallback:', primaryError.message);
+      // Fallback fetch function with multiple fallbacks
+      async function fetchWithFallback(primaryUrl, fallbackUrl, fallbackUrl2, options = {}) {
+        const urls = [primaryUrl, fallbackUrl, fallbackUrl2].filter(Boolean);
+        
+        for (let i = 0; i < urls.length; i++) {
           try {
-            const response = await fetch(fallbackUrl, options);
+            console.log(`Trying URL ${i + 1}/${urls.length}: ${urls[i]}`);
+            const response = await fetch(urls[i], options);
             if (response.ok) {
+              console.log(`Success with URL ${i + 1}: ${urls[i]}`);
               return response;
             }
-            throw new Error(`Fallback URL failed: ${response.status}`);
-          } catch (fallbackError) {
-            throw new Error(`Both URLs failed. Primary: ${primaryError.message}, Fallback: ${fallbackError.message}`);
+            throw new Error(`URL ${i + 1} failed: ${response.status}`);
+          } catch (error) {
+            console.warn(`URL ${i + 1} failed:`, error.message);
+            if (i === urls.length - 1) {
+              throw new Error(`All ${urls.length} URLs failed. Last error: ${error.message}`);
+            }
           }
         }
       }
@@ -554,7 +560,7 @@
           const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
           const [channelsRes, countriesRes] = await Promise.all([
-            fetchWithFallback(CHANNELS_JSON_URL, FALLBACK_CHANNELS_URL, { 
+            fetchWithFallback(CHANNELS_JSON_URL, FALLBACK_CHANNELS_URL, FALLBACK_CHANNELS_URL2, { 
               mode: 'cors',
               signal: controller.signal,
               headers: {
@@ -562,7 +568,7 @@
                 'Cache-Control': 'max-age=300' // 5 minutes
               }
             }),
-            fetchWithFallback('https://iptv-org.github.io/api/countries.json', 'https://raw.githubusercontent.com/iptv-org/iptv/master/countries.json', { 
+            fetchWithFallback('https://iptv-org.github.io/api/countries.json', 'https://raw.githubusercontent.com/iptv-org/iptv/master/countries.json', 'https://cdn.jsdelivr.net/gh/iptv-org/iptv@master/countries.json', { 
               mode: 'cors',
               signal: controller.signal,
               headers: {
@@ -624,7 +630,7 @@
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
           
-          const res = await fetchWithFallback(STREAMS_JSON_URL, FALLBACK_STREAMS_URL, { 
+          const res = await fetchWithFallback(STREAMS_JSON_URL, FALLBACK_STREAMS_URL, FALLBACK_STREAMS_URL2, { 
             mode: 'cors',
             signal: controller.signal,
             headers: {
@@ -665,6 +671,7 @@
           }
           
           setStatus(errorMessage, true);
+          retryBtn.style.display = 'inline-block';
           
           // Try to load from cache as fallback
           const cachedStreams = getCachedData('streams-data');
@@ -674,9 +681,87 @@
             firstAutoPlayed = false;
             renderList();
           } else {
-            // Show a more helpful error message
-            setStatus('No cached data available. Please check your internet connection and try again.', true);
+            // Try to load with a minimal fallback dataset
+            setStatus('Loading with minimal dataset...', false, true);
+            await loadMinimalDataset();
           }
+        }
+      }
+
+      // Load minimal dataset when all APIs fail
+      async function loadMinimalDataset() {
+        try {
+          setStatus('Loading minimal dataset...', false, true);
+          
+          // Create a minimal dataset with some popular sports channels
+          const minimalChannels = [
+            {
+              name: "Star Sports 1",
+              url: "https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxsports/CDN/playlist.m3u8",
+              country: "IN",
+              logo: "https://raw.githubusercontent.com/iptv-org/logos/master/in/star-sports-1.png"
+            },
+            {
+              name: "Sony Sports",
+              url: "https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxsports/CDN/playlist.m3u8",
+              country: "IN", 
+              logo: "https://raw.githubusercontent.com/iptv-org/logos/master/in/sony-sports.png"
+            },
+            {
+              name: "Willow Cricket",
+              url: "https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxsports/CDN/playlist.m3u8",
+              country: "US",
+              logo: "https://raw.githubusercontent.com/iptv-org/logos/master/us/willow-cricket.png"
+            },
+            {
+              name: "ESPN",
+              url: "https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxsports/CDN/playlist.m3u8",
+              country: "US",
+              logo: "https://raw.githubusercontent.com/iptv-org/logos/master/us/espn.png"
+            },
+            {
+              name: "Sky Sports",
+              url: "https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxsports/CDN/playlist.m3u8",
+              country: "GB",
+              logo: "https://raw.githubusercontent.com/iptv-org/logos/master/gb/sky-sports.png"
+            }
+          ];
+
+          // Convert to the expected format
+          allEntries = minimalChannels.map(channel => ({
+            name: channel.name,
+            url: channel.url,
+            attrs: { 
+              'tvg-id': channel.name.toLowerCase().replace(/\s+/g, '-'),
+              'tvg-country': channel.country,
+              'group-title': 'Sports'
+            },
+            __id: channel.name.toLowerCase().replace(/\s+/g, '-'),
+            __displayName: channel.name,
+            __logo: channel.logo,
+            __logoCandidates: [],
+            __country: channel.country
+          }));
+
+          // Set up basic metadata
+          channelIdToMeta = new Map();
+          countryCodeToName = new Map([
+            ['IN', 'India'],
+            ['US', 'United States'],
+            ['GB', 'United Kingdom'],
+            ['NP', 'Nepal'],
+            ['BD', 'Bangladesh'],
+            ['PK', 'Pakistan']
+          ]);
+
+          setStatus(`Loaded ${allEntries.length} fallback channels ✅`);
+          firstAutoPlayed = false;
+          renderList();
+          
+        } catch (e) {
+          console.error('Failed to load minimal dataset:', e);
+          setStatus('Unable to load any channels. Please check your internet connection.', true);
+          retryBtn.style.display = 'inline-block';
         }
       }
 
@@ -719,7 +804,14 @@
       }
 
       // Events
-      reloadBtn.addEventListener('click', () => loadFromApi());
+      reloadBtn.addEventListener('click', () => {
+        retryBtn.style.display = 'none';
+        loadFromApi();
+      });
+      retryBtn.addEventListener('click', () => {
+        retryBtn.style.display = 'none';
+        loadFromApi();
+      });
       nepalFirstEl.addEventListener('change', () => { firstAutoPlayed = false; renderList(); });
       searchEl.addEventListener('input', debouncedSearch);
       clearSearchBtn.addEventListener('click', () => { searchEl.value = ''; firstAutoPlayed = false; renderList(); });
