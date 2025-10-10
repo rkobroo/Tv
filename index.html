@@ -514,6 +514,7 @@
       }
 
       function renderList() {
+        console.log('renderList called with', allEntries.length, 'entries');
         const q = (searchEl.value || '').trim().toLowerCase();
         const onlyFav = onlyFavEl.checked;
         const entries = sortForNepal(allEntries, nepalFirstEl.checked).filter(e => {
@@ -523,8 +524,10 @@
           return true;
         });
 
+        console.log('Filtered entries:', entries.length);
         channelListEl.innerHTML = '';
         if (!entries.length) {
+          console.log('No entries to display');
           channelListEl.innerHTML = '<div class="muted" style="padding:8px;">No channels match your filters.</div>';
           return;
         }
@@ -688,11 +691,13 @@
       }
 
       async function loadFromApi() {
+        console.log('Starting loadFromApi...');
         setStatus('Loading channels and streams…');
         try {
           // Check cache for streams data
           const cachedStreams = getCachedData('streams-data');
           if (cachedStreams) {
+            console.log('Using cached data:', cachedStreams.length, 'entries');
             allEntries = cachedStreams;
             setStatus(`Loaded ${allEntries.length} HLS channels from cache ✅`);
             firstAutoPlayed = false;
@@ -700,9 +705,11 @@
             return;
           }
 
+          console.log('Fetching channels metadata...');
           await fetchChannelsMeta();
           
           setStatus('Fetching streams data...', false, true);
+          console.log('Fetching streams from:', STREAMS_JSON_URL);
           
           // Use AbortController for timeout
           const controller = new AbortController();
@@ -720,12 +727,15 @@
           clearTimeout(timeoutId);
           
           if (!res.ok) throw new Error('HTTP ' + res.status);
+          console.log('Streams response received, parsing JSON...');
           const streams = await res.json();
+          console.log('Streams parsed:', streams.length, 'streams');
           
           setStatus('Processing streams...', false, true);
           
           // Process streams in chunks to avoid blocking UI
           allEntries = await processStreamsInChunks(streams);
+          console.log('Processed entries:', allEntries.length);
           
           // Cache the processed data
           setCachedData('streams-data', allEntries);
@@ -754,12 +764,14 @@
           // Try to load from cache as fallback
           const cachedStreams = getCachedData('streams-data');
           if (cachedStreams) {
+            console.log('Using cached data as fallback:', cachedStreams.length, 'entries');
             allEntries = cachedStreams;
             setStatus(`Loaded ${allEntries.length} HLS channels from cache (offline) ✅`);
             firstAutoPlayed = false;
             renderList();
           } else {
             // Try to load with a minimal fallback dataset
+            console.log('No cache available, loading minimal dataset...');
             setStatus('Loading with minimal dataset...', false, true);
             await loadMinimalDataset();
           }
@@ -769,6 +781,7 @@
       // Load minimal dataset when all APIs fail
       async function loadMinimalDataset() {
         try {
+          console.log('Loading minimal dataset...');
           setStatus('Loading minimal dataset...', false, true);
           
           // Create a minimal dataset with some popular sports channels
@@ -821,6 +834,8 @@
             __country: channel.country
           }));
 
+          console.log('Minimal dataset created:', allEntries.length, 'entries');
+
           // Set up basic metadata
           channelIdToMeta = new Map();
           countryCodeToName = new Map([
@@ -834,6 +849,7 @@
 
           setStatus(`Loaded ${allEntries.length} fallback channels ✅`);
           firstAutoPlayed = false;
+          console.log('Calling renderList from minimal dataset...');
           renderList();
           
         } catch (e) {
@@ -928,10 +944,25 @@
 
       // Initial load from API
       async function initializeApp() {
-        await testApiConnectivity();
-        await loadFromApi();
+        try {
+          console.log('Initializing app...');
+          setStatus('Initializing...', false, true);
+          
+          // For debugging, let's try minimal dataset first
+          console.log('Loading minimal dataset for testing...');
+          await loadMinimalDataset();
+          
+          // Then try the full API load
+          // await testApiConnectivity();
+          // await loadFromApi();
+        } catch (e) {
+          console.error('App initialization failed:', e);
+          setStatus('Initialization failed. Trying fallback...', true);
+          await loadMinimalDataset();
+        }
       }
       
+      // Start initialization
       initializeApp();
     </script>
   </body>
