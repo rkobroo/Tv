@@ -23,7 +23,11 @@ export default async function handler(req, res) {
         'Accept': 'application/vnd.apple.mpegurl,application/x-mpegURL,application/json,text/plain,*/*',
         'Accept-Encoding': 'gzip, deflate, br',
         'Connection': 'keep-alive',
-        'Cache-Control': 'no-cache'
+        'Cache-Control': 'no-cache',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'cross-site'
       }
     });
 
@@ -63,14 +67,28 @@ export default async function handler(req, res) {
           return line.replace(/URI="(.*?)"/g, (m, g1) => `URI="${proxify(g1)}"`);
         }
 
+        // Handle EXT-X-SESSION-KEY
+        if (t.startsWith('#EXT-X-SESSION-KEY')) {
+          return line.replace(/URI="(.*?)"/g, (m, g1) => `URI="${proxify(g1)}"`);
+        }
+
         // Variant playlists: #EXT-X-STREAM-INF next line is a URI
         if (t.startsWith('#EXT-X-STREAM-INF') || t.startsWith('#EXT-X-MEDIA')) {
           return line; // keep tag; next non-tag line will be handled below
         }
 
+        // Handle EXT-X-DISCONTINUITY-SEQUENCE and other metadata
+        if (t.startsWith('#EXT-X-DISCONTINUITY-SEQUENCE') || t.startsWith('#EXT-X-TARGETDURATION') || t.startsWith('#EXT-X-VERSION')) {
+          return line;
+        }
+
         // Segments or child playlist URIs (non-tag lines)
         if (!t.startsWith('#')) {
-          return proxify(t);
+          // Only proxy if it looks like a URL
+          if (t.startsWith('http://') || t.startsWith('https://') || t.startsWith('/')) {
+            return proxify(t);
+          }
+          return line;
         }
 
         return line;
