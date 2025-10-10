@@ -134,6 +134,10 @@
       // Use iptv-org API instead of parsing M3U
       const CHANNELS_JSON_URL = 'https://iptv-org.github.io/api/channels.json';
       const STREAMS_JSON_URL  = 'https://iptv-org.github.io/api/streams.json';
+      
+      // Fallback URLs in case primary ones fail
+      const FALLBACK_CHANNELS_URL = 'https://raw.githubusercontent.com/iptv-org/iptv/master/channels.json';
+      const FALLBACK_STREAMS_URL = 'https://raw.githubusercontent.com/iptv-org/iptv/master/streams.json';
 
       const statusEl = document.getElementById('status');
       const nepalFirstEl = document.getElementById('nepalFirst');
@@ -252,6 +256,28 @@
           return data;
         } catch {
           return null;
+        }
+      }
+
+      // Fallback fetch function
+      async function fetchWithFallback(primaryUrl, fallbackUrl, options = {}) {
+        try {
+          const response = await fetch(primaryUrl, options);
+          if (response.ok) {
+            return response;
+          }
+          throw new Error(`Primary URL failed: ${response.status}`);
+        } catch (primaryError) {
+          console.warn('Primary URL failed, trying fallback:', primaryError.message);
+          try {
+            const response = await fetch(fallbackUrl, options);
+            if (response.ok) {
+              return response;
+            }
+            throw new Error(`Fallback URL failed: ${response.status}`);
+          } catch (fallbackError) {
+            throw new Error(`Both URLs failed. Primary: ${primaryError.message}, Fallback: ${fallbackError.message}`);
+          }
         }
       }
 
@@ -528,7 +554,7 @@
           const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
           const [channelsRes, countriesRes] = await Promise.all([
-            fetch(CHANNELS_JSON_URL, { 
+            fetchWithFallback(CHANNELS_JSON_URL, FALLBACK_CHANNELS_URL, { 
               mode: 'cors',
               signal: controller.signal,
               headers: {
@@ -536,7 +562,7 @@
                 'Cache-Control': 'max-age=300' // 5 minutes
               }
             }),
-            fetch('https://iptv-org.github.io/api/countries.json', { 
+            fetchWithFallback('https://iptv-org.github.io/api/countries.json', 'https://raw.githubusercontent.com/iptv-org/iptv/master/countries.json', { 
               mode: 'cors',
               signal: controller.signal,
               headers: {
@@ -571,6 +597,7 @@
           
         } catch (e) {
           console.warn('Failed to load channels/countries json:', e);
+          setStatus(`Channel metadata error: ${e.message}`, true);
           channelIdToMeta = new Map();
           countryCodeToName = new Map();
         }
@@ -597,7 +624,7 @@
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
           
-          const res = await fetch(STREAMS_JSON_URL, { 
+          const res = await fetchWithFallback(STREAMS_JSON_URL, FALLBACK_STREAMS_URL, { 
             mode: 'cors',
             signal: controller.signal,
             headers: {
@@ -623,8 +650,21 @@
           firstAutoPlayed = false;
           renderList();
         } catch (err) {
-          console.error(err);
-          setStatus('Failed to fetch iptv-org API. See console for details.', true);
+          console.error('API fetch error:', err);
+          
+          // Provide more specific error messages
+          let errorMessage = 'Failed to fetch iptv-org API. ';
+          if (err.name === 'AbortError') {
+            errorMessage += 'Request timed out. ';
+          } else if (err.message.includes('Failed to fetch')) {
+            errorMessage += 'Network error - check your internet connection. ';
+          } else if (err.message.includes('HTTP')) {
+            errorMessage += `Server error: ${err.message}. `;
+          } else {
+            errorMessage += `Error: ${err.message}. `;
+          }
+          
+          setStatus(errorMessage, true);
           
           // Try to load from cache as fallback
           const cachedStreams = getCachedData('streams-data');
@@ -634,7 +674,8 @@
             firstAutoPlayed = false;
             renderList();
           } else {
-            alert('Could not fetch iptv-org API. Possible reasons: network or API outage.');
+            // Show a more helpful error message
+            setStatus('No cached data available. Please check your internet connection and try again.', true);
           }
         }
       }
@@ -694,8 +735,34 @@
         });
       });
 
+      // Test API connectivity first
+      async function testApiConnectivity() {
+        try {
+          setStatus('Testing API connectivity...', false, true);
+          const testResponse = await fetch('https://iptv-org.github.io/api/channels.json', { 
+            method: 'HEAD',
+            mode: 'cors'
+          });
+          if (testResponse.ok) {
+            setStatus('API is accessible, loading channels...', false, true);
+            return true;
+          } else {
+            setStatus('API returned error, trying fallback...', false, true);
+            return false;
+          }
+        } catch (e) {
+          setStatus('API not accessible, trying fallback...', false, true);
+          return false;
+        }
+      }
+
       // Initial load from API
-      loadFromApi();
+      async function initializeApp() {
+        await testApiConnectivity();
+        await loadFromApi();
+      }
+      
+      initializeApp();
     </script>
   </body>
 </html>
