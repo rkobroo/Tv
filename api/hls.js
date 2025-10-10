@@ -9,22 +9,40 @@ export default async function handler(req, res) {
     const upstreamUrl = new URL(url);
     const referer = `${upstreamUrl.protocol}//${upstreamUrl.host}/`;
 
+    // Set up timeout and abort controller
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     const upstream = await fetch(upstreamUrl.toString(), {
       redirect: 'follow',
+      signal: controller.signal,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Referer': referer,
         'Origin': referer,
-        'Accept': 'application/vnd.apple.mpegurl,application/x-mpegURL,application/json,text/plain,*/*'
+        'Accept': 'application/vnd.apple.mpegurl,application/x-mpegURL,application/json,text/plain,*/*',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Cache-Control': 'no-cache'
       }
     });
+
+    clearTimeout(timeoutId);
 
     const ct = upstream.headers.get('content-type') || '';
     const isPlaylist = ct.includes('application/vnd.apple.mpegurl') || ct.includes('application/x-mpegURL') || ct.includes('audio/mpegurl') || ct.includes('text/plain');
 
     // Always allow any origin to read
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
+    
+    // Optimized caching based on content type
+    if (isPlaylist) {
+      res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=60'); // Short cache for playlists
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600'); // Longer cache for segments
+    }
 
     if (isPlaylist) {
       const text = await upstream.text();
@@ -69,6 +87,13 @@ export default async function handler(req, res) {
     res.status(upstream.status).send(Buffer.from(arrayBuf));
   } catch (e) {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.status(502).json({ error: 'Upstream fetch failed' });
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
+    
+    if (e.name === 'AbortError') {
+      res.status(504).json({ error: 'Request timeout' });
+    } else {
+      res.status(502).json({ error: 'Upstream fetch failed' });
+    }
   }
 }
