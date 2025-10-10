@@ -59,6 +59,17 @@
       .player-wrap { display: grid; grid-template-rows: auto 1fr; gap: 10px; }
       .video-js { width: 100%; height: 68vh; border-radius: 10px; overflow: hidden; background: #000; }
       .now-playing { font-size: 13px; opacity: .9; }
+      .loading-indicator { 
+        display: inline-block; 
+        width: 16px; 
+        height: 16px; 
+        border: 2px solid #233143; 
+        border-top: 2px solid #7ecbff; 
+        border-radius: 50%; 
+        animation: spin 1s linear infinite; 
+        margin-right: 8px;
+      }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
       footer { padding: 12px 16px; font-size: 12px; color: #c8d3df; opacity: 0.9; border-top: 1px solid #1c2736; }
     </style>
@@ -134,10 +145,18 @@
       const onlyFavEl = document.getElementById('onlyFav');
       const nowPlayingEl = document.getElementById('nowPlaying');
 
+      // Performance optimizations
+      const CACHE_KEY = 'iptv-cache';
+      const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+      const LOGO_CACHE = new Map();
+      const CONCURRENT_LOGO_LOADS = 10;
+      let logoLoadQueue = [];
+      let activeLogoLoads = 0;
+
       const player = videojs('videoPlayer', {
         autoplay: false,
         controls: true,
-        preload: 'auto',
+        preload: 'metadata', // Changed from 'auto' for faster initial load
         liveui: true,
         responsive: true,
         fluid: true,
@@ -148,24 +167,151 @@
             fastQualityChange: true,
             smoothQualityChange: true,
             limitRenditionByPlayerDimensions: true,
-            bandwidthInitial: 500000
+            bandwidthInitial: 1000000, // Increased initial bandwidth
+            overrideNative: true, // Better HLS support
+            enableWorker: true, // Enable worker for better performance
+            smoothQualityChange: true,
+            experimentalBufferBasedABR: true, // Experimental but often better
+            experimentalLLHLS: true, // Low latency HLS support
+            maxPlaylistRetries: 3,
+            playlistLoadTimeout: 10000,
+            segmentRequestTimeout: 10000,
+            manifestRequestTimeout: 10000
+          }
+        },
+        // Additional performance settings
+        loadingSpinner: false, // Disable default spinner for custom loading
+        bigPlayButton: true,
+        textTrackSettings: false,
+        errorDisplay: false // Custom error handling
+      });
+      player.addClass('vjs-live');
+      
+      // Enhanced live tracking with better performance
+      player.liveTracker && player.liveTracker.on('liveedgechange', () => {
+        if (player.liveTracker.isLive()) {
+          try { 
+            player.liveTracker.seekToLiveEdge(); 
+          } catch (e) {
+            console.warn('Live edge seek failed:', e);
           }
         }
       });
-      player.addClass('vjs-live');
-      player.liveTracker && player.liveTracker.on('liveedgechange', () => {
-        if (player.liveTracker.isLive()) {
-          try { player.liveTracker.seekToLiveEdge(); } catch {}
-        }
-      });
-      player.on('error', () => {
+
+      // Enhanced error handling with retry logic
+      let retryCount = 0;
+      const MAX_RETRIES = 2;
+      
+      player.on('error', (event) => {
         const err = player.error();
         const msg = err && err.message ? err.message : 'Unknown playback error';
-        alert('Stream failed to load. Please try another channel.\n\nDetails: ' + msg);
+        console.error('Player error:', err);
+        
+        // Show custom error message instead of alert
+        setStatus(`Stream error: ${msg}`, true);
+        
+        // Auto-retry for certain errors
+        if (retryCount < MAX_RETRIES && err && err.code >= 2 && err.code <= 4) {
+          retryCount++;
+          setTimeout(() => {
+            setStatus(`Retrying... (${retryCount}/${MAX_RETRIES})`);
+            player.src(player.currentSrc());
+            player.play().catch(() => {});
+          }, 2000 * retryCount);
+        } else {
+          retryCount = 0;
+        }
       });
 
-      function setStatus(message, isError = false) {
-        statusEl.innerHTML = (isError ? '<span class="danger">' : '<span class="success">') + message + '</span>';
+      // Reset retry count on successful play
+      player.on('play', () => {
+        retryCount = 0;
+        setStatus('Playing ✅');
+      });
+
+      // Loading state management
+      player.on('loadstart', () => setStatus('Loading stream...'));
+      player.on('canplay', () => setStatus('Ready to play ✅'));
+      player.on('waiting', () => setStatus('Buffering...'));
+
+      function setStatus(message, isError = false, isLoading = false) {
+        const prefix = isLoading ? '<span class="loading-indicator"></span>' : '';
+        statusEl.innerHTML = prefix + (isError ? '<span class="danger">' : '<span class="success">') + message + '</span>';
+      }
+
+      // Caching utilities
+      function getCachedData(key) {
+        try {
+          const cached = localStorage.getItem(key);
+          if (!cached) return null;
+          const { data, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp > CACHE_DURATION) {
+            localStorage.removeItem(key);
+            return null;
+          }
+          return data;
+        } catch {
+          return null;
+        }
+      }
+
+      function setCachedData(key, data) {
+        try {
+          localStorage.setItem(key, JSON.stringify({
+            data,
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          console.warn('Failed to cache data:', e);
+        }
+      }
+
+      // Optimized logo loading with concurrency control
+      function loadLogoWithConcurrency(imgEl, candidates) {
+        return new Promise((resolve) => {
+          const loadNext = () => {
+            if (candidates.length === 0) {
+              imgEl.style.display = 'none';
+              resolve(false);
+              return;
+            }
+
+            const url = candidates.shift();
+            
+            // Check cache first
+            if (LOGO_CACHE.has(url)) {
+              imgEl.src = LOGO_CACHE.get(url);
+              resolve(true);
+              return;
+            }
+
+            const img = new Image();
+            img.onload = () => {
+              LOGO_CACHE.set(url, url);
+              imgEl.src = url;
+              activeLogoLoads--;
+              processLogoQueue();
+              resolve(true);
+            };
+            img.onerror = () => {
+              activeLogoLoads--;
+              processLogoQueue();
+              loadNext();
+            };
+            img.src = url;
+            activeLogoLoads++;
+          };
+
+          logoLoadQueue.push(loadNext);
+          processLogoQueue();
+        });
+      }
+
+      function processLogoQueue() {
+        while (logoLoadQueue.length > 0 && activeLogoLoads < CONCURRENT_LOGO_LOADS) {
+          const loadFn = logoLoadQueue.shift();
+          loadFn();
+        }
       }
 
       // Flags for quick country visualization
@@ -311,16 +457,10 @@
           `;
 
           const imgEl = card.querySelector('img.channel-logo');
-          const tryNext = () => {
-            if (entry.__logoCandidates && entry.__logoCandidates.length) {
-              const next = entry.__logoCandidates.shift();
-              imgEl.src = next;
-            } else {
-              imgEl.style.display = 'none';
-            }
-          };
-          imgEl.onerror = tryNext;
-          if (entry.__logo) { imgEl.src = entry.__logo; } else { tryNext(); }
+          const logoCandidates = [entry.__logo, ...(entry.__logoCandidates || [])].filter(Boolean);
+          
+          // Use optimized logo loading
+          loadLogoWithConcurrency(imgEl, logoCandidates);
 
           const starEl = card.querySelector('.star');
           starEl.addEventListener('click', (ev) => {
@@ -343,54 +483,204 @@
       function playEntry(entry) {
         nowPlayingEl.textContent = `Now playing: ${entry.__displayName}`;
         const proxied = `/api/hls?url=${encodeURIComponent(entry.url)}`;
-        try { player.reset(); } catch {}
-        player.src({ src: proxied, type: 'application/x-mpegURL' });
-        player.play().catch(() => {});
+        
+        // Reset retry count for new stream
+        retryCount = 0;
+        
+        try { 
+          player.reset(); 
+        } catch (e) {
+          console.warn('Player reset failed:', e);
+        }
+        
+        // Preload the stream for faster playback
+        player.src({ 
+          src: proxied, 
+          type: 'application/x-mpegURL',
+          preload: 'metadata'
+        });
+        
+        // Try to play with better error handling
+        player.ready(() => {
+          player.play().catch((e) => {
+            console.warn('Auto-play failed:', e);
+            setStatus('Click play to start stream');
+          });
+        });
       }
 
       async function fetchChannelsMeta() {
         try {
+          // Check cache first
+          const cachedChannels = getCachedData('channels-meta');
+          const cachedCountries = getCachedData('countries-meta');
+          
+          if (cachedChannels && cachedCountries) {
+            channelIdToMeta = cachedChannels;
+            countryCodeToName = cachedCountries;
+            return;
+          }
+
+          setStatus('Loading channel metadata...', false, true);
+          
+          // Use AbortController for timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
           const [channelsRes, countriesRes] = await Promise.all([
-            fetch(CHANNELS_JSON_URL, { mode: 'cors' }),
-            fetch('https://iptv-org.github.io/api/countries.json', { mode: 'cors' })
+            fetch(CHANNELS_JSON_URL, { 
+              mode: 'cors',
+              signal: controller.signal,
+              headers: {
+                'Accept': 'application/json',
+                'Cache-Control': 'max-age=300' // 5 minutes
+              }
+            }),
+            fetch('https://iptv-org.github.io/api/countries.json', { 
+              mode: 'cors',
+              signal: controller.signal,
+              headers: {
+                'Accept': 'application/json',
+                'Cache-Control': 'max-age=300'
+              }
+            })
           ]);
+          
+          clearTimeout(timeoutId);
+          
           if (!channelsRes.ok) throw new Error('channels HTTP ' + channelsRes.status);
           const arr = await channelsRes.json();
+          
           countryCodeToName = new Map();
           if (countriesRes.ok) {
             const countries = await countriesRes.json();
-            countries.forEach(c => { if (c.code) countryCodeToName.set((c.code || '').toUpperCase(), c.name || c.code); });
+            countries.forEach(c => { 
+              if (c.code) countryCodeToName.set((c.code || '').toUpperCase(), c.name || c.code); 
+            });
           }
-          channelIdToMeta = new Map(arr.map(x => [x.id, { name: x.name, logo: x.logo || '', country: (x.country || '').toUpperCase() }]));
+          
+          channelIdToMeta = new Map(arr.map(x => [x.id, { 
+            name: x.name, 
+            logo: x.logo || '', 
+            country: (x.country || '').toUpperCase() 
+          }]));
+
+          // Cache the results
+          setCachedData('channels-meta', channelIdToMeta);
+          setCachedData('countries-meta', countryCodeToName);
+          
         } catch (e) {
-          console.warn('Failed to load channels/countries json');
+          console.warn('Failed to load channels/countries json:', e);
           channelIdToMeta = new Map();
           countryCodeToName = new Map();
         }
       }
 
       async function loadFromApi() {
-        setStatus('Fetching channels and streams…');
+        setStatus('Loading channels and streams…');
         try {
+          // Check cache for streams data
+          const cachedStreams = getCachedData('streams-data');
+          if (cachedStreams) {
+            allEntries = cachedStreams;
+            setStatus(`Loaded ${allEntries.length} HLS channels from cache ✅`);
+            firstAutoPlayed = false;
+            renderList();
+            return;
+          }
+
           await fetchChannelsMeta();
-          const res = await fetch(STREAMS_JSON_URL, { mode: 'cors' });
+          
+          setStatus('Fetching streams data...', false, true);
+          
+          // Use AbortController for timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+          
+          const res = await fetch(STREAMS_JSON_URL, { 
+            mode: 'cors',
+            signal: controller.signal,
+            headers: {
+              'Accept': 'application/json',
+              'Cache-Control': 'max-age=300'
+            }
+          });
+          
+          clearTimeout(timeoutId);
+          
           if (!res.ok) throw new Error('HTTP ' + res.status);
           const streams = await res.json();
-          allEntries = hydrate(streams);
+          
+          setStatus('Processing streams...', false, true);
+          
+          // Process streams in chunks to avoid blocking UI
+          allEntries = await processStreamsInChunks(streams);
+          
+          // Cache the processed data
+          setCachedData('streams-data', allEntries);
+          
           setStatus(`Loaded ${allEntries.length} HLS channels ✅`);
           firstAutoPlayed = false;
           renderList();
         } catch (err) {
           console.error(err);
           setStatus('Failed to fetch iptv-org API. See console for details.', true);
-          alert('Could not fetch iptv-org API. Possible reasons: network or API outage.');
+          
+          // Try to load from cache as fallback
+          const cachedStreams = getCachedData('streams-data');
+          if (cachedStreams) {
+            allEntries = cachedStreams;
+            setStatus(`Loaded ${allEntries.length} HLS channels from cache (offline) ✅`);
+            firstAutoPlayed = false;
+            renderList();
+          } else {
+            alert('Could not fetch iptv-org API. Possible reasons: network or API outage.');
+          }
         }
+      }
+
+      // Process streams in chunks to avoid blocking UI
+      async function processStreamsInChunks(streams) {
+        const chunkSize = 1000;
+        const chunks = [];
+        for (let i = 0; i < streams.length; i += chunkSize) {
+          chunks.push(streams.slice(i, i + chunkSize));
+        }
+        
+        let allEntries = [];
+        for (let i = 0; i < chunks.length; i++) {
+          const chunk = chunks[i];
+          const hydrated = hydrate(chunk);
+          allEntries = allEntries.concat(hydrated);
+          
+          // Update status for large datasets
+          if (chunks.length > 1) {
+            setStatus(`Processing streams... ${Math.round((i + 1) / chunks.length * 100)}%`);
+          }
+          
+          // Allow UI to update
+          if (i % 5 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+          }
+        }
+        
+        return allEntries;
+      }
+
+      // Debounced search for better performance
+      let searchTimeout;
+      function debouncedSearch() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          firstAutoPlayed = false;
+          renderList();
+        }, 300); // 300ms delay
       }
 
       // Events
       reloadBtn.addEventListener('click', () => loadFromApi());
       nepalFirstEl.addEventListener('change', () => { firstAutoPlayed = false; renderList(); });
-      searchEl.addEventListener('input', () => { firstAutoPlayed = false; renderList(); });
+      searchEl.addEventListener('input', debouncedSearch);
       clearSearchBtn.addEventListener('click', () => { searchEl.value = ''; firstAutoPlayed = false; renderList(); });
       onlyFavEl.addEventListener('change', () => { firstAutoPlayed = false; renderList(); });
 
