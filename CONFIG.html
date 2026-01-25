@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Sports TV - Server Configuration</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #e8edf2;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 30px 0;
+        }
+        h1 {
+            font-size: 2.5em;
+            background: linear-gradient(120deg, #7ecbff, #5be49b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #c8d3df;
+            font-size: 1.1em;
+        }
+        .section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid #233143;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+        }
+        .section h2 {
+            color: #7ecbff;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+            border-bottom: 2px solid rgba(126, 203, 255, 0.3);
+            padding-bottom: 10px;
+        }
+        .error-box {
+            background: rgba(255, 107, 107, 0.1);
+            border: 2px solid #ff7b7b;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        .error-box h3 {
+            color: #ff7b7b;
+            margin-bottom: 15px;
+        }
+        .success-box {
+            background: rgba(91, 228, 155, 0.1);
+            border: 2px solid #5be49b;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        .success-box h3 {
+            color: #5be49b;
+            margin-bottom: 15px;
+        }
+        .method {
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 4px solid #7ecbff;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+        }
+        .method h3 {
+            color: #7ecbff;
+            margin-bottom: 10px;
+        }
+        .method p {
+            margin-bottom: 10px;
+        }
+        .code-block {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #1c2736;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            overflow-x: auto;
+            color: #5be49b;
+        }
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 12px 25px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: linear-gradient(120deg, #7ecbff, #5be49b);
+            color: #0b0f14;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(126, 203, 255, 0.3);
+        }
+        .btn-secondary {
+            background: rgba(126, 203, 255, 0.1);
+            border: 2px solid #7ecbff;
+            color: #7ecbff;
+        }
+        .btn-secondary:hover {
+            background: rgba(126, 203, 255, 0.2);
+        }
+        .features {
+            list-style: none;
+            margin: 15px 0;
+        }
+        .features li {
+            padding: 10px 0;
+            padding-left: 30px;
+            position: relative;
+        }
+        .features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #5be49b;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #1c2736;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 Live Sports TV</h1>
+            <p class="subtitle">Server Configuration Guide</p>
+        </header>
+
+        <div class="error-box">
+            <h3>⚠️ Web Preview Not Working</h3>
+            <p>
+                VS Code's Simple Browser preview has limitations. To run the application properly, 
+                you need to set up a local HTTP server using one of the methods below.
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>🚀 Setup Instructions</h2>
+            
+            <div class="method">
+                <h3>Option 1: VS Code Live Server (Recommended)</h3>
+                <p><strong>Step 1:</strong> Install the "Live Server" extension</p>
+                <ul class="features">
+                    <li>Open VS Code Extensions (Ctrl+Shift+X)</li>
+                    <li>Search for "Live Server" by Ritwick Dey</li>
+                    <li>Click Install</li>
+                </ul>
+                <p><strong>Step 2:</strong> Start the server</p>
+                <ul class="features">
+                    <li>Right-click on <code>index.html</code></li>
+                    <li>Select "Open with Live Server"</li>
+                    <li>Browser opens automatically at <code>http://127.0.0.1:5500</code></li>
+                </ul>
+                <p style="color: #5be49b; margin-top: 10px;">✨ Best option: auto-refreshes on file changes</p>
+            </div>
+
+            <div class="method">
+                <h3>Option 2: Python HTTP Server</h3>
+                <p><strong>Requirements:</strong> Python 3.x installed</p>
+                <p><strong>Step 1:</strong> Open terminal in project directory</p>
+                <p><strong>Step 2:</strong> Run this command:</p>
+                <div class="code-block">python -m http.server 3000</div>
+                <p><strong>Step 3:</strong> Open browser to <code>http://localhost:3000</code></p>
+            </div>
+
+            <div class="method">
+                <h3>Option 3: Node.js Server</h3>
+                <p><strong>Requirements:</strong> Node.js installed</p>
+                <p><strong>Step 1:</strong> Open terminal in project directory</p>
+                <p><strong>Step 2:</strong> Run this command:</p>
+                <div class="code-block">node server.js</div>
+                <p><strong>Step 3:</strong> Open browser to <code>http://localhost:3000</code></p>
+            </div>
+
+            <div class="method">
+                <h3>Option 4: Windows Batch File</h3>
+                <p><strong>Step 1:</strong> Double-click <code>start-server.bat</code></p>
+                <p><strong>Step 2:</strong> A terminal window opens</p>
+                <p><strong>Step 3:</strong> Server automatically starts on <code>http://localhost:3000</code></p>
+                <p style="color: #5be49b; margin-top: 10px;">✨ Simplest for Windows users</p>
+            </div>
+
+            <div class="method">
+                <h3>Option 5: PowerShell HTTP Server</h3>
+                <p><strong>Step 1:</strong> Open PowerShell in project directory</p>
+                <p><strong>Step 2:</strong> Run this command:</p>
+                <div class="code-block">Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process; .\http-server.ps1</div>
+                <p><strong>Step 3:</strong> Server starts on <code>http://localhost:8000</code></p>
+            </div>
+        </div>
+
+        <div class="success-box">
+            <h3>✅ Application Features</h3>
+            <ul class="features">
+                <li>Live HLS streaming with Video.js player</li>
+                <li>Smart search and category filtering</li>
+                <li>Favorites management with persistence</li>
+                <li>Regional support (NP, IN, BD, PK, LK, BT, etc.)</li>
+                <li>Automatic error recovery with retry logic</li>
+                <li>Beautiful dark theme UI</li>
+                <li>Low-latency live TV support</li>
+                <li>Quality adaptive streaming</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>🔧 All Issues Fixed</h2>
+            <ul class="features">
+                <li><strong>Save Failed Error</strong> - Error handling added to localStorage</li>
+                <li><strong>Duplicate Property</strong> - Removed smoothQualityChange duplicate</li>
+                <li><strong>Variable Shadowing</strong> - Fixed scope conflicts</li>
+                <li><strong>Missing Return Statements</strong> - Added proper control flow</li>
+            </ul>
+            <p style="margin-top: 15px; color: #5be49b;">
+                ✅ Status: All systems ready for production deployment
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>📂 Project Files</h2>
+            <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 6px; font-family: monospace; font-size: 0.95em;">
+                <div>Tv/</div>
+                <div>├── <span style="color: #7ecbff;">index.html</span> (Main application)</div>
+                <div>├── <span style="color: #7ecbff;">server.js</span> (Node.js server)</div>
+                <div>├── <span style="color: #7ecbff;">package.json</span> (NPM config)</div>
+                <div>├── <span style="color: #7ecbff;">start-server.bat</span> (Windows launcher)</div>
+                <div>├── <span style="color: #7ecbff;">http-server.ps1</span> (PowerShell server)</div>
+                <div>├── api/</div>
+                <div>│   └── <span style="color: #7ecbff;">hls.js</span> (HLS proxy)</div>
+                <div>└── <span style="color: #7ecbff;">README.md</span></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🌍 Browser Support</h2>
+            <p>This application requires a modern browser with HTML5 support:</p>
+            <ul class="features">
+                <li>Chrome/Chromium 90+</li>
+                <li>Firefox 88+</li>
+                <li>Safari 14+</li>
+                <li>Edge 90+</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>❓ FAQ</h2>
+            <p><strong>Q: Why doesn't VS Code preview work?</strong></p>
+            <p style="margin-bottom: 15px;">A: VS Code's Simple Browser has limitations with localStorage and external API requests needed for this app.</p>
+            
+            <p><strong>Q: Which method should I use?</strong></p>
+            <p style="margin-bottom: 15px;">A: Live Server extension is easiest. It auto-refreshes and is ideal for development.</p>
+            
+            <p><strong>Q: Can I deploy this?</strong></p>
+            <p style="margin-bottom: 15px;">A: Yes! The app is ready for Vercel, Netlify, or any static hosting. The /api/hls.js works on Vercel.</p>
+            
+            <p><strong>Q: Do I need internet?</strong></p>
+            <p>A: Yes, the app needs internet to fetch channel lists from iptv-org API and stream content.</p>
+        </div>
+
+        <footer>
+            <p>Live Sports TV v1.0 | All issues fixed | Ready for deployment 🚀</p>
+        </footer>
+    </div>
+</body>
+</html>

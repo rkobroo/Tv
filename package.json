@@ -1,0 +1,19 @@
+{
+  "name": "live-sports-tv",
+  "version": "1.0.0",
+  "description": "Live Sports TV streaming application using Video.js and IPTV-org",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "iptv",
+    "streaming",
+    "video",
+    "hls",
+    "sports"
+  ],
+  "author": "",
+  "license": "MIT"
+}

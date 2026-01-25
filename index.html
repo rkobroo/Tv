@@ -180,7 +180,6 @@
             bandwidthInitial: 1000000, // Increased initial bandwidth
             overrideNative: true, // Better HLS support
             enableWorker: true, // Enable worker for better performance
-            smoothQualityChange: true,
             experimentalBufferBasedABR: true, // Experimental but often better
             experimentalLLHLS: true, // Low latency HLS support
             maxPlaylistRetries: 5, // Increased retries
@@ -504,7 +503,7 @@
       // Favorites
       const FAV_KEY = 'iptv-favorites';
       function getFavorites() { try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch { return []; } }
-      function setFavorites(list) { localStorage.setItem(FAV_KEY, JSON.stringify(list)); }
+      function setFavorites(list) { try { localStorage.setItem(FAV_KEY, JSON.stringify(list)); } catch (e) { console.warn('Failed to save favorites:', e); } }
       function isFav(url) { return getFavorites().includes(url); }
       function toggleFav(url) {
         const favs = getFavorites();
@@ -840,6 +839,7 @@
           console.error('Failed to load minimal dataset:', e);
           setStatus('Unable to load any channels. Please check your internet connection.', true);
           retryBtn.style.display = 'inline-block';
+          return;
         }
       }
 
@@ -851,11 +851,11 @@
           chunks.push(streams.slice(i, i + chunkSize));
         }
         
-        let allEntries = [];
+        const processedEntries = [];
         for (let i = 0; i < chunks.length; i++) {
           const chunk = chunks[i];
           const hydrated = hydrate(chunk);
-          allEntries = allEntries.concat(hydrated);
+          processedEntries.push(...hydrated);
           
           // Update status for large datasets
           if (chunks.length > 1) {
@@ -868,7 +868,7 @@
           }
         }
         
-        return allEntries;
+        return processedEntries;
       }
 
       // Debounced search for better performance
