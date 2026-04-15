@@ -230,7 +230,11 @@
         hls = new Hls({
           enableWorker: true,
           lowLatencyMode: false,
-          backBufferLength: 30
+          maxBufferLength: 30,
+          maxMaxBufferLength: 60,
+          maxBufferSize: 60 * 1000 * 1000,
+          maxBufferHole: 0.5,
+          startLevel: -1
         });
         
         hls.loadSource(streamUrl);
