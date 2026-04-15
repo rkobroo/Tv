@@ -302,6 +302,40 @@
       }
 
       // Caching utilities
+      function serializeForCache(data) {
+        if (data instanceof Map) {
+          return { __type: 'Map', value: Array.from(data.entries()) };
+        }
+        if (Array.isArray(data)) {
+          return data.map(serializeForCache);
+        }
+        if (data && typeof data === 'object') {
+          const result = {};
+          for (const key of Object.keys(data)) {
+            result[key] = serializeForCache(data[key]);
+          }
+          return result;
+        }
+        return data;
+      }
+
+      function deserializeFromCache(data) {
+        if (data && data.__type === 'Map') {
+          return new Map(data.value);
+        }
+        if (Array.isArray(data)) {
+          return data.map(deserializeFromCache);
+        }
+        if (data && typeof data === 'object') {
+          const result = {};
+          for (const key of Object.keys(data)) {
+            result[key] = deserializeFromCache(data[key]);
+          }
+          return result;
+        }
+        return data;
+      }
+
       function getCachedData(key) {
         try {
           const cached = localStorage.getItem(key);
@@ -311,7 +345,7 @@
             localStorage.removeItem(key);
             return null;
           }
-          return data;
+          return deserializeFromCache(data);
         } catch {
           return null;
         }
@@ -341,8 +375,9 @@
 
       function setCachedData(key, data) {
         try {
+          const serialized = serializeForCache(data);
           localStorage.setItem(key, JSON.stringify({
-            data,
+            data: serialized,
             timestamp: Date.now()
           }));
         } catch (e) {
@@ -564,10 +599,33 @@
         });
       }
 
+      // Detect if proxy is available
+      let proxyAvailable = null;
+      async function checkProxyAvailable() {
+        if (proxyAvailable !== null) return proxyAvailable;
+        try {
+          const response = await fetch('/api/hls', {
+            method: 'HEAD',
+            signal: AbortSignal.timeout(2000)
+          });
+          proxyAvailable = response.ok || response.status === 400; // 400 means endpoint exists but no URL param
+        } catch (e) {
+          proxyAvailable = false;
+        }
+        console.log('Proxy available:', proxyAvailable);
+        return proxyAvailable;
+      }
+
+      // Get stream URL (proxied if available, direct otherwise)
+      function getStreamUrl(url) {
+        return proxyAvailable ? `/api/hls?url=${encodeURIComponent(url)}` : url;
+      }
+
       // Test if a stream URL is accessible
       async function testStreamUrl(url) {
         try {
-          const response = await fetch(`/api/hls?url=${encodeURIComponent(url)}`, {
+          const testUrl = getStreamUrl(url);
+          const response = await fetch(testUrl, {
             method: 'HEAD',
             signal: AbortSignal.timeout(5000) // 5 second timeout
           });
@@ -580,18 +638,19 @@
 
       async function playEntry(entry) {
         nowPlayingEl.textContent = `Now playing: ${entry.__displayName}`;
-        const proxied = `/api/hls?url=${encodeURIComponent(entry.url)}`;
         
         // Reset retry count for new stream
         retryCount = 0;
         
-        // Test stream accessibility first
-        setStatus('Testing stream...', false, true);
-        const isAccessible = await testStreamUrl(entry.url);
-        
-        if (!isAccessible) {
-          setStatus('Stream not accessible. Try another channel.', true);
-          return;
+        // Test stream accessibility first (skip test for direct URLs as they may timeout)
+        if (proxyAvailable) {
+          setStatus('Testing stream...', false, true);
+          const isAccessible = await testStreamUrl(entry.url);
+          
+          if (!isAccessible) {
+            setStatus('Stream not accessible. Try another channel.', true);
+            return;
+          }
         }
         
         try { 
@@ -602,9 +661,12 @@
         
         setStatus('Loading stream...', false, true);
         
+        // Get the appropriate URL (proxied or direct)
+        const streamUrl = getStreamUrl(entry.url);
+        
         // Preload the stream for faster playback
         player.src({ 
-          src: proxied, 
+          src: streamUrl, 
           type: 'application/x-mpegURL',
           preload: 'metadata'
         });
@@ -765,46 +827,190 @@
         }
       }
 
+      // Parse M3U/M3U8 playlist format
+      function parseM3U(text) {
+        const lines = text.split(/\r?\n/);
+        const entries = [];
+        let currentEntry = null;
+        
+        for (const line of lines) {
+          const trimmed = line.trim();
+          
+          if (trimmed.startsWith('#EXTINF:')) {
+            const match = trimmed.match(/#EXTINF:[^,]*,\s*(.*)/);
+            const name = match ? match[1] : 'Unknown';
+            
+            const tvgIdMatch = trimmed.match(/tvg-id="([^"]*)"/);
+            const tvgCountryMatch = trimmed.match(/tvg-country="([^"]*)"/);
+            const tvgLogoMatch = trimmed.match(/tvg-logo="([^"]*)"/);
+            const groupMatch = trimmed.match(/group-title="([^"]*)"/);
+            
+            currentEntry = {
+              name: name,
+              attrs: {
+                'tvg-id': tvgIdMatch ? tvgIdMatch[1] : '',
+                'tvg-country': tvgCountryMatch ? tvgCountryMatch[1] : '',
+                'tvg-logo': tvgLogoMatch ? tvgLogoMatch[1] : '',
+                'group-title': groupMatch ? groupMatch[1] : ''
+              },
+              __country: tvgCountryMatch ? tvgCountryMatch[1].toUpperCase() : ''
+            };
+          } else if (currentEntry && !trimmed.startsWith('#') && trimmed.length > 0) {
+            // This is the URL
+            if (trimmed.includes('.m3u8') || trimmed.includes('.m3u')) {
+              currentEntry.url = trimmed;
+              currentEntry.__id = currentEntry.attrs['tvg-id'] || currentEntry.name.toLowerCase().replace(/\s+/g, '-');
+              currentEntry.__displayName = currentEntry.name;
+              currentEntry.__logo = currentEntry.attrs['tvg-logo'] || '';
+              currentEntry.__logoCandidates = [];
+              
+              // Build logo candidates
+              if (currentEntry.__logo) {
+                currentEntry.__logoCandidates.push(currentEntry.__logo);
+              }
+              const slug = slugifyName(currentEntry.name);
+              const cc = currentEntry.__country;
+              if (slug) {
+                currentEntry.__logoCandidates.push(
+                  `https://raw.githubusercontent.com/iptv-org/logos/master/${slug}.png`,
+                  `https://raw.githubusercontent.com/iptv-org/logos/master/${slug}.svg`
+                );
+                if (cc) {
+                  currentEntry.__logoCandidates.push(
+                    `https://raw.githubusercontent.com/iptv-org/logos/master/${cc}/${slug}.png`,
+                    `https://raw.githubusercontent.com/iptv-org/logos/master/${cc}/${slug}.svg`
+                  );
+                }
+              }
+              
+              entries.push(currentEntry);
+              currentEntry = null;
+            }
+          }
+        }
+        
+        return entries;
+      }
+
+      // Load from M3U playlist directly
+      async function loadFromM3U() {
+        const m3uUrls = [
+          'https://iptv-org.github.io/api/channels.json',
+          'https://raw.githubusercontent.com/iptv-org/iptv/main/categories/sports.m3u',
+          'https://cdn.jsdelivr.net/gh/iptv-org/iptv@master/categories/sports.m3u'
+        ];
+        
+        for (const m3uUrl of m3uUrls) {
+          try {
+            setStatus(`Trying M3U: ${m3uUrl.split('/').pop()}...`, false, true);
+            const response = await fetch(m3uUrl, { 
+              mode: 'cors',
+              signal: AbortSignal.timeout(15000)
+            });
+            
+            if (response.ok) {
+              const text = await response.text();
+              
+              // Check if it's JSON (channels.json format) or M3U
+              if (text.trim().startsWith('[') || text.trim().startsWith('{')) {
+                // JSON format - convert to entries
+                try {
+                  const data = JSON.parse(text);
+                  if (Array.isArray(data)) {
+                    // It's the channels.json format
+                    allEntries = data
+                      .filter(ch => ch.url && (ch.url.includes('.m3u8') || ch.url.includes('.m3u')))
+                      .map(ch => ({
+                        name: ch.name || 'Unknown',
+                        url: ch.url,
+                        attrs: { 
+                          'tvg-id': ch.id || '',
+                          'tvg-country': ch.country || '',
+                          'tvg-logo': ch.logo || '',
+                          'group-title': ch.categories ? ch.categories.join(', ') : ''
+                        },
+                        __id: ch.id || '',
+                        __displayName: ch.name || 'Unknown',
+                        __logo: ch.logo || '',
+                        __logoCandidates: [],
+                        __country: (ch.country || '').toUpperCase()
+                      }));
+                    
+                    // Build logo candidates for each entry
+                    allEntries.forEach(entry => {
+                      const slug = slugifyName(entry.name);
+                      const cc = entry.__country;
+                      if (slug) {
+                        entry.__logoCandidates.push(
+                          `https://raw.githubusercontent.com/iptv-org/logos/master/${slug}.png`,
+                          `https://raw.githubusercontent.com/iptv-org/logos/master/${slug}.svg`
+                        );
+                        if (cc) {
+                          entry.__logoCandidates.push(
+                            `https://raw.githubusercontent.com/iptv-org/logos/master/${cc}/${slug}.png`,
+                            `https://raw.githubusercontent.com/iptv-org/logos/master/${cc}/${slug}.svg`
+                          );
+                        }
+                      }
+                      if (entry.__logo) {
+                        entry.__logoCandidates.unshift(entry.__logo);
+                      }
+                    });
+                  }
+                } catch (parseErr) {
+                  console.warn('JSON parse failed:', parseErr);
+                  continue;
+                }
+              } else {
+                // M3U format
+                allEntries = parseM3U(text);
+              }
+              
+              if (allEntries.length > 0) {
+                // Set up country names
+                countryCodeToName = new Map([
+                  ['IN', 'India'], ['US', 'United States'], ['GB', 'United Kingdom'],
+                  ['NP', 'Nepal'], ['BD', 'Bangladesh'], ['PK', 'Pakistan'],
+                  ['LK', 'Sri Lanka'], ['BT', 'Bhutan'], ['AU', 'Australia'],
+                  ['CA', 'Canada']
+                ]);
+                
+                // Cache the results
+                setCachedData('streams-data', allEntries);
+                
+                setStatus(`Loaded ${allEntries.length} channels from M3U ✅`);
+                firstAutoPlayed = false;
+                renderList();
+                return true;
+              }
+            }
+          } catch (e) {
+            console.warn(`M3U load failed for ${m3uUrl}:`, e.message);
+          }
+        }
+        return false;
+      }
+
       // Load minimal dataset when all APIs fail
       async function loadMinimalDataset() {
         try {
-          setStatus('Loading minimal dataset...', false, true);
+          setStatus('Loading fallback channels...', false, true);
           
-          // Create a minimal dataset with some popular sports channels
+          // Try M3U first
+          const m3uLoaded = await loadFromM3U();
+          if (m3uLoaded) return;
+          
+          // Fallback to hardcoded sports channels
           const minimalChannels = [
-            {
-              name: "Star Sports 1",
-              url: "https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxsports/CDN/playlist.m3u8",
-              country: "IN",
-              logo: "https://raw.githubusercontent.com/iptv-org/logos/master/in/star-sports-1.png"
-            },
-            {
-              name: "Sony Sports",
-              url: "https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxsports/CDN/playlist.m3u8",
-              country: "IN", 
-              logo: "https://raw.githubusercontent.com/iptv-org/logos/master/in/sony-sports.png"
-            },
-            {
-              name: "Willow Cricket",
-              url: "https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxsports/CDN/playlist.m3u8",
-              country: "US",
-              logo: "https://raw.githubusercontent.com/iptv-org/logos/master/us/willow-cricket.png"
-            },
-            {
-              name: "ESPN",
-              url: "https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxsports/CDN/playlist.m3u8",
-              country: "US",
-              logo: "https://raw.githubusercontent.com/iptv-org/logos/master/us/espn.png"
-            },
-            {
-              name: "Sky Sports",
-              url: "https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxsports/CDN/playlist.m3u8",
-              country: "GB",
-              logo: "https://raw.githubusercontent.com/iptv-org/logos/master/gb/sky-sports.png"
-            }
+            { name: "Star Sports 1", url: "https://stream.shahid MBCgroup.com/live/espn_south_asia_nogrp/playlist.m3u8", country: "IN", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/in/star-sports-1.png" },
+            { name: "Star Sports 2", url: "https://stream.shahid MBCgroup.com/live/espn_india_nogrp/playlist.m3u8", country: "IN", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/in/star-sports-2.png" },
+            { name: "Star Sports Cricket", url: "https://stream.shahid MBCgroup.com/live/espn_in_hd/playlist.m3u8", country: "IN", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/in/star-sports-hd.png" },
+            { name: "Sony Ten 1", url: "https://stream.shahid MBCgroup.com/live/sony_six_nogrp/playlist.m3u8", country: "IN", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/in/sony-ten-1.png" },
+            { name: "Willow Cricket", url: "https://stream.shahid MBCgroup.com/live/willow_hd/playlist.m3u8", country: "US", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/us/willow-cricket.png" },
+            { name: "PTV Sports", url: "https://stream.shahid MBCgroup.com/live/ptv_sports/playlist.m3u8", country: "PK", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/pk/ptv-sports.png" },
+            { name: "T Sports", url: "https://stream.shahid MBCgroup.com/live/tsports_live/playlist.m3u8", country: "BD", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/bd/t-sports.png" }
           ];
 
-          // Convert to the expected format
           allEntries = minimalChannels.map(channel => ({
             name: channel.name,
             url: channel.url,
@@ -820,15 +1026,9 @@
             __country: channel.country
           }));
 
-          // Set up basic metadata
-          channelIdToMeta = new Map();
           countryCodeToName = new Map([
-            ['IN', 'India'],
-            ['US', 'United States'],
-            ['GB', 'United Kingdom'],
-            ['NP', 'Nepal'],
-            ['BD', 'Bangladesh'],
-            ['PK', 'Pakistan']
+            ['IN', 'India'], ['US', 'United States'], ['GB', 'United Kingdom'],
+            ['NP', 'Nepal'], ['BD', 'Bangladesh'], ['PK', 'Pakistan']
           ]);
 
           setStatus(`Loaded ${allEntries.length} fallback channels ✅`);
@@ -836,10 +1036,9 @@
           renderList();
           
         } catch (e) {
-          console.error('Failed to load minimal dataset:', e);
-          setStatus('Unable to load any channels. Please check your internet connection.', true);
+          console.error('Failed to load fallback dataset:', e);
+          setStatus('Unable to load channels. Please check internet connection.', true);
           retryBtn.style.display = 'inline-block';
-          return;
         }
       }
 
@@ -928,6 +1127,7 @@
 
       // Initial load from API
       async function initializeApp() {
+        await checkProxyAvailable();
         await testApiConnectivity();
         await loadFromApi();
       }
