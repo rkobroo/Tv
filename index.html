@@ -254,9 +254,11 @@
       
       try {
         const response = await fetch(url);
-        if (!response.ok) throw new Error('Failed to fetch');
+        if (!response.ok) throw new Error('Failed to fetch: ' + response.status);
         
         const text = await response.text();
+        if (!text || text.length < 100) throw new Error('Empty or invalid response');
+        
         allChannels = parseM3U(text);
         
         if (allChannels.length === 0) {
@@ -270,7 +272,7 @@
         renderChannels();
       } catch (error) {
         console.error('Error:', error);
-        channelListEl.innerHTML = '<div class="loading">Error loading playlist. Check URL and try again.</div>';
+        channelListEl.innerHTML = `<div class="loading" style="color:#f55">Error: ${error.message}<br><br>Tip: Run 'node server.js' then open http://localhost:3000</div>`;
       }
     }
 
