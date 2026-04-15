@@ -74,21 +74,9 @@
 
   <script src="https://unpkg.com/video.js@8/dist/video.min.js"></script>
   <script>
-    // CORS Proxy - use multiple fallbacks
-    const PROXIES = [
-      (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-      (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-      (url) => `https://yacdn.org/proxy/${url}`
-    ];
-    let proxyIndex = 0;
-    
+    // Use local proxy
     function getProxyUrl(url) {
-      return PROXIES[proxyIndex](url);
-    }
-    
-    function rotateProxy() {
-      proxyIndex = (proxyIndex + 1) % PROXIES.length;
-      console.log('Using proxy:', proxyIndex);
+      return `/proxy?url=${encodeURIComponent(url)}`;
     }
 
     // Elements
