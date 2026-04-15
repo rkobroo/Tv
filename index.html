@@ -360,7 +360,7 @@
       });
     }
 
-    // Play channel
+    // Play channel - use proxy for CORS
     function playChannel(ch) {
       if (!playerReady) {
         setStatus('Player not ready, wait...', true);
@@ -375,8 +375,8 @@
       document.querySelectorAll('.channel-card').forEach(c => c.classList.remove('playing'));
       renderChannels();
 
-      // Use proxy if available, otherwise direct
-      const streamUrl = ch.url;
+      // Use proxy to bypass CORS
+      const streamUrl = `/proxy?url=${encodeURIComponent(ch.url)}`;
 
       try {
         player.src({
@@ -386,7 +386,7 @@
         
         player.play().catch(e => {
           console.warn('Play error:', e);
-          setStatus('Click play to start');
+          setStatus('Click play button to start');
         });
       } catch (e) {
         console.error('Source error:', e);
