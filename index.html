@@ -10,32 +10,39 @@
     header { padding: 12px 16px; background: #1a1a1a; display: flex; align-items: center; gap: 16px; }
     header h1 { margin: 0; font-size: 18px; }
     .btn { background: #333; color: #fff; border: none; padding: 8px 16px; cursor: pointer; border-radius: 4px; }
-    #status { color: #888; }
+    #status { color: #888; font-size: 13px; }
     .container { display: flex; height: calc(100vh - 56px); }
     .sidebar { width: 300px; background: #1a1a1a; overflow-y: auto; padding: 10px; }
     .channel { padding: 12px; margin-bottom: 6px; background: #222; cursor: pointer; border-radius: 6px; display: flex; align-items: center; gap: 10px; }
     .channel:hover { background: #333; }
-    .channel.playing { background: #1a3a1a; border: 1px solid #3a5a3a; }
-    .logo { width: 40px; height: 40px; background: #000; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    .channel.playing { background: #1a3a1a; }
+    .logo { width: 40px; height: 40px; background: #000; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
     .logo img { width: 100%; height: 100%; object-fit: contain; border-radius: 6px; }
     .info { flex: 1; }
     .name { font-weight: 600; font-size: 14px; }
     .country { font-size: 12px; color: #888; }
     .main { flex: 1; padding: 16px; display: flex; flex-direction: column; }
-    #nowPlaying { margin-bottom: 10px; font-size: 14px; color: #aaa; }
+    #nowPlaying { margin-bottom: 10px; font-size: 14px; }
     .video-wrap { flex: 1; background: #000; border-radius: 10px; overflow: hidden; min-height: 300px; }
     .video-js { width: 100%; height: 100%; }
-    .error { color: #f55; padding: 20px; text-align: center; }
+    .notice { background: #2a2a1a; padding: 10px; margin: 10px; border-radius: 6px; font-size: 12px; }
+    .notice a { color: #7ecbff; }
   </style>
 </head>
 <body>
   <header>
     <h1>Live Sports TV</h1>
-    <span id="status">Loading channels...</span>
+    <span id="status">Loading...</span>
   </header>
 
   <div class="container">
-    <aside class="sidebar" id="channelList"></aside>
+    <aside class="sidebar">
+      <div class="notice">
+        <strong>Important:</strong> For video to work, deploy to <a href="https://vercel.com" target="_blank">Vercel</a> (free):<br>
+        <code style="font-size:11px">npx vercel</code>
+      </div>
+      <div id="channelList"></div>
+    </aside>
     <main class="main">
       <div id="nowPlaying">Select a channel</div>
       <div class="video-wrap">
@@ -56,12 +63,32 @@
     const flags = { 'NP': '🇳🇵', 'IN': '🇮🇳', 'BD': '🇧🇩', 'PK': '🇵🇰', 'LK': '🇱🇰', 'US': '🇺🇸', 'GB': '🇬🇧' };
     const countries = { 'NP': 'Nepal', 'IN': 'India', 'BD': 'Bangladesh', 'PK': 'Pakistan', 'LK': 'Sri Lanka', 'US': 'USA', 'GB': 'UK' };
 
-    const player = videojs('player', { autoplay: true, controls: true, preload: 'auto', fluid: true });
-    player.on('error', () => statusEl.textContent = 'Stream error - try another');
-    player.on('playing', () => statusEl.textContent = 'Playing');
+    // Try multiple proxies
+    const PROXIES = [
+      (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+      (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+      (u) => `/proxy?url=${encodeURIComponent(u)}`
+    ];
+    let proxyIdx = 0;
 
-    // Use local proxy (requires server running on port 3000)
-    function proxy(url) { return `/proxy?url=${encodeURIComponent(url)}`; }
+    function getProxyUrl(url) {
+      return PROXIES[proxyIdx](url);
+    }
+
+    const player = videojs('player', { autoplay: true, controls: true, preload: 'auto', fluid: true });
+    
+    player.on('error', function() {
+      const err = player.error();
+      statusEl.textContent = `Error: ${err?.message || 'Playback failed'}`;
+      // Try next proxy
+      if (proxyIdx < PROXIES.length - 1) {
+        proxyIdx++;
+        if (current) play(current);
+      }
+    });
+    
+    player.on('playing', () => statusEl.textContent = 'Playing');
+    player.on('waiting', () => statusEl.textContent = 'Buffering...');
 
     // Parse M3U
     function parseM3U(text) {
@@ -76,17 +103,13 @@
           const logo = (t.match(/tvg-logo="([^"]*)"/) || [])[1] || '';
           info = { name, country, logo };
         } else if (info && !t.startsWith('#') && t.includes('.m3u')) {
-          // Build logo URL
           let logoUrl = info.logo;
           if (!logoUrl?.startsWith('http')) {
             const slug = info.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
             logoUrl = `https://raw.githubusercontent.com/iptv-org/logos/master/${info.country.toLowerCase()}/${slug}.png`;
           }
-          // Filter sports
-          const n = info.name.toLowerCase(), g = (t.match(/group-title="([^"]*)"/) || [])[1] || '';
-          if (/sports|cricket|football|soccer|espn|star|sony|bein|premier|laliga|bundesliga|serie|fox|sky|willow|ptv/i.test(n) ||
-              /sports|cricket|football/i.test(g) ||
-              ['IN', 'NP', 'BD', 'PK', 'LK'].includes(info.country)) {
+          const n = info.name.toLowerCase();
+          if (/sports|cricket|football|soccer|espn|star|sony|bein|premier/i.test(n) || ['IN', 'NP', 'BD', 'PK', 'LK'].includes(info.country)) {
             chs.push({ ...info, url: t, logo: logoUrl });
           }
           info = null;
@@ -142,7 +165,7 @@
       document.querySelectorAll('.channel').forEach(c => c.classList.remove('playing'));
       render();
       
-      player.src({ src: proxy(ch.url), type: 'application/x-mpegURL' });
+      player.src({ src: getProxyUrl(ch.url), type: 'application/x-mpegURL' });
       player.play().catch(() => statusEl.textContent = 'Click play');
     }
 
@@ -153,12 +176,11 @@
         if (!r.ok) throw new Error();
         channels = sortChs(parseM3U(await r.text()));
         if (channels.length === 0) throw new Error();
-        statusEl.textContent = `${channels.length} channels - server must be running: node server.js`;
+        statusEl.textContent = `${channels.length} channels loaded`;
         render();
         play(channels[0]);
       } catch {
-        statusEl.textContent = 'Error! Run: node server.js then refresh';
-        statusEl.style.color = '#f55';
+        statusEl.textContent = 'Failed to load channels';
       }
     }
 
