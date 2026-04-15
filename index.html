@@ -195,10 +195,9 @@
       });
     }
 
-    // CORS proxy - try multiple
+    // CORS proxy - use Vercel API for better streaming
     function getStreamUrl(url) {
-      // Use allorigins - better for m3u8
-      return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+      return `/api/proxy?url=${encodeURIComponent(url)}`;
     }
 
     // Play channel
