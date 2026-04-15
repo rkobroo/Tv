@@ -2,118 +2,223 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Network Stream Player</title>
+  <title>IPTV Player</title>
   <link href="https://unpkg.com/video.js@8/dist/video-js.min.css" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; }
-    body { font-family: system-ui; margin: 0; background: #1a1a1a; color: #fff; min-height: 100vh; display: flex; flex-direction: column; }
-    header { padding: 20px; background: #222; text-align: center; }
-    header h1 { margin: 0 0 20px 0; font-size: 24px; }
-    .input-group { display: flex; gap: 10px; max-width: 900px; margin: 0 auto; }
-    .url-input { flex: 1; padding: 14px 18px; font-size: 16px; background: #333; color: #fff; border: 2px solid #444; border-radius: 8px; outline: none; }
-    .url-input:focus { border-color: #4a9eff; }
-    .url-input::placeholder { color: #888; }
-    .play-btn { padding: 14px 30px; font-size: 16px; background: #4a9eff; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
-    .play-btn:hover { background: #3a8eef; }
+    body { font-family: system-ui; margin: 0; background: #111; color: #fff; }
+    header { padding: 15px; background: #1a1a1a; border-bottom: 1px solid #333; }
+    header h1 { margin: 0 0 12px 0; font-size: 20px; }
+    .input-row { display: flex; gap: 10px; }
+    .url-input { flex: 1; padding: 12px 15px; font-size: 14px; background: #2a2a2a; color: #fff; border: 1px solid #444; border-radius: 6px; }
+    .url-input:focus { border-color: #4a9eff; outline: none; }
+    .load-btn { padding: 12px 24px; background: #4a9eff; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .load-btn:hover { background: #3a8eef; }
     
-    .video-container { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; background: #111; }
-    .video-wrapper { width: 100%; max-width: 1200px; background: #000; border-radius: 12px; overflow: hidden; aspect-ratio: 16/9; }
-    video { width: 100%; height: 100%; background: #000; }
+    .container { display: flex; height: calc(100vh - 130px); }
+    .sidebar { width: 320px; background: #1a1a1a; border-right: 1px solid #333; overflow-y: auto; }
+    .search-row { padding: 10px; border-bottom: 1px solid #333; }
+    .search-input { width: 100%; padding: 10px; background: #2a2a2a; color: #fff; border: 1px solid #444; border-radius: 6px; }
     
-    .sample-links { padding: 20px; text-align: center; background: #1a1a1a; }
-    .sample-links h3 { margin: 0 0 15px 0; color: #888; font-size: 14px; }
-    .sample-links a { color: #4a9eff; margin: 0 8px; font-size: 13px; text-decoration: none; }
-    .sample-links a:hover { text-decoration: underline; }
+    .channels { padding: 8px; }
+    .channel { display: flex; align-items: center; gap: 12px; padding: 10px; margin-bottom: 6px; background: #252525; border-radius: 8px; cursor: pointer; }
+    .channel:hover { background: #333; }
+    .channel.playing { background: #1a3a1a; border: 1px solid #3a5a3a; }
+    .logo { width: 48px; height: 48px; background: #000; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .logo img { width: 100%; height: 100%; object-fit: contain; }
+    .logo span { font-size: 18px; color: #666; }
+    .ch-info { flex: 1; }
+    .ch-name { font-weight: 600; font-size: 14px; }
+    .ch-country { font-size: 12px; color: #888; }
     
-    .status { padding: 10px; text-align: center; color: #888; font-size: 13px; }
-    .status.error { color: #ff6b6b; }
-    .status.success { color: #5be49b; }
+    .main { flex: 1; display: flex; flex-direction: column; background: #0a0a0a; }
+    .now-playing { padding: 12px 16px; font-size: 14px; color: #888; }
+    .video-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .video-wrap video { width: 100%; height: 100%; background: #000; border-radius: 12px; }
     
-    .instructions { padding: 20px; max-width: 600px; margin: 20px auto; background: #222; border-radius: 10px; }
-    .instructions h3 { margin: 0 0 10px 0; color: #4a9eff; }
-    .instructions p { margin: 8px 0; font-size: 14px; color: #aaa; line-height: 1.6; }
-    .instructions code { background: #333; padding: 2px 6px; border-radius: 4px; color: #4a9eff; }
+    .loading { text-align: center; padding: 40px; color: #888; }
+    .loading-spinner { width: 40px; height: 40px; border: 3px solid #333; border-top: 3px solid #4a9eff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .chips { display: flex; gap: 8px; padding: 10px; flex-wrap: wrap; border-bottom: 1px solid #333; }
+    .chip { padding: 6px 14px; background: #252525; border-radius: 20px; font-size: 12px; cursor: pointer; }
+    .chip.active { background: #4a9eff; }
   </style>
 </head>
 <body>
   <header>
-    <h1>Network Stream Player</h1>
-    <div class="input-group">
-      <input type="text" class="url-input" id="streamUrl" placeholder="Paste stream URL here (e.g., https://example.com/stream.m3u8)" />
-      <button class="play-btn" onclick="playStream()">Play</button>
+    <h1>IPTV Player</h1>
+    <div class="input-row">
+      <input type="text" class="url-input" id="playlistUrl" placeholder="Paste M3U/M3U8 playlist URL..." value="https://iptv-org.github.io/iptv/index.m3u" />
+      <button class="load-btn" onclick="loadPlaylist()">Load</button>
     </div>
   </header>
 
-  <div class="status" id="status">Paste an m3u8 URL and click Play</div>
+  <div class="container">
+    <aside class="sidebar">
+      <div class="search-row">
+        <input type="text" class="search-input" id="searchInput" placeholder="Search channels..." />
+      </div>
+      <div class="chips">
+        <div class="chip active" data-cat="all">All</div>
+        <div class="chip" data-cat="sports">Sports</div>
+        <div class="chip" data-cat="news">News</div>
+        <div class="chip" data-cat="movies">Movies</div>
+        <div class="chip" data-cat="music">Music</div>
+      </div>
+      <div class="channels" id="channelList"></div>
+    </aside>
 
-  <div class="video-container">
-    <div class="video-wrapper">
-      <video id="player" controls preload="auto" playsinline></video>
-    </div>
-  </div>
-
-  <div class="sample-links">
-    <h3>Sample Working Streams (try these):</h3>
-    <a href="#" onclick="loadSample('https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8'); return false;">Test Stream</a>
-    <a href="#" onclick="loadSample('https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8'); return false;">Apple Demo</a>
-    <a href="#" onclick="loadSample('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'); return false;">Mux Test</a>
-  </div>
-
-  <div class="instructions">
-    <h3>How to Use:</h3>
-    <p>1. Copy a <code>.m3u8</code> stream URL</p>
-    <p>2. Paste it in the input box above</p>
-    <p>3. Click <code>Play</code></p>
-    <p><strong>Tip:</strong> For IPTV channels, copy the direct .m3u8 URL (not the playlist file URL)</p>
+    <main class="main">
+      <div class="now-playing" id="nowPlaying">Select a channel to play</div>
+      <div class="video-wrap">
+        <video id="player" controls preload="auto" playsinline></video>
+      </div>
+    </main>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script>
-    const video = document.getElementById('player');
-    const urlInput = document.getElementById('streamUrl');
-    const statusEl = document.getElementById('status');
+    const player = document.getElementById('player');
+    const channelListEl = document.getElementById('channelList');
+    const nowPlayingEl = document.getElementById('nowPlaying');
+    const searchInput = document.getElementById('searchInput');
+    const playlistUrlInput = document.getElementById('playlistUrl');
+
+    let allChannels = [];
+    let currentChannel = null;
     let hls = null;
+    let activeCategory = 'all';
 
-    // Play stream from URL
-    function playStream() {
-      const url = urlInput.value.trim();
-      if (!url) {
-        showStatus('Please enter a stream URL', 'error');
-        return;
+    const flags = { 'NP': '🇳🇵', 'IN': '🇮🇳', 'BD': '🇧🇩', 'PK': '🇵🇰', 'LK': '🇱🇰', 'BT': '🇧🇹', 'US': '🇺🇸', 'GB': '🇬🇧', 'AU': '🇦🇺', 'CA': '🇨🇦' };
+    const countries = { 'NP': 'Nepal', 'IN': 'India', 'BD': 'Bangladesh', 'PK': 'Pakistan', 'LK': 'Sri Lanka', 'BT': 'Bhutan', 'US': 'USA', 'GB': 'UK', 'AU': 'Australia', 'CA': 'Canada' };
+
+    // Parse M3U
+    function parseM3U(text) {
+      const channels = [];
+      const lines = text.split(/\r?\n/);
+      let info = null;
+
+      for (const line of lines) {
+        const t = line.trim();
+        
+        if (t.startsWith('#EXTINF:')) {
+          const parts = t.split(',');
+          const name = parts[1]?.trim() || 'Unknown';
+          const country = ((t.match(/tvg-country="([^"]*)"/) || [])[1] || '').toUpperCase();
+          const logo = (t.match(/tvg-logo="([^"]*)"/) || [])[1] || '';
+          const group = (t.match(/group-title="([^"]*)"/) || [])[1] || '';
+          info = { name, country, logo, group };
+        }
+        else if (info && !t.startsWith('#') && (t.includes('.m3u8') || t.includes('.m3u'))) {
+          // Generate logo URL if not provided
+          let logoUrl = info.logo;
+          if (!logoUrl || !logoUrl.startsWith('http')) {
+            const slug = info.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+            logoUrl = `https://raw.githubusercontent.com/iptv-org/logos/master/${info.country.toLowerCase()}/${slug}.png`;
+          }
+          channels.push({
+            ...info,
+            url: t,
+            logo: logoUrl
+          });
+          info = null;
+        }
       }
-      if (!url.includes('.m3u')) {
-        showStatus('URL should end with .m3u or .m3u8', 'error');
-        return;
-      }
-      play(url);
+      return channels;
     }
 
-    // Load sample stream
-    function loadSample(url) {
-      urlInput.value = url;
-      play(url);
-    }
-
-    // Play the stream
-    function play(url) {
-      showStatus('Loading stream...', '');
+    // Filter by category
+    function filterCategory(channels) {
+      if (activeCategory === 'all') return channels;
       
-      // Destroy previous hls instance
+      const filters = {
+        'sports': /sports|cricket|football|soccer|espn|star|sony|bein|premier|laliga|bundesliga|serie|fox|sky|willow|ptv/i,
+        'news': /news|ndtv|abp|republic|aaj|tak|cnn|bbc|al|jazeera/i,
+        'movies': /movies|cinema|film|star|movie|bolawood|hollywood/i,
+        'music': /music|mtun|hits|MTV|viva|channel.*v/i
+      };
+      
+      const filter = filters[activeCategory];
+      if (!filter) return channels;
+      
+      return channels.filter(ch => 
+        filter.test(ch.name) || filter.test(ch.group)
+      );
+    }
+
+    // Render channels
+    function renderChannels() {
+      let filtered = allChannels;
+      
+      // Category filter
+      filtered = filterCategory(filtered);
+      
+      // Search filter
+      const search = searchInput.value.toLowerCase();
+      if (search) {
+        filtered = filtered.filter(ch => 
+          ch.name.toLowerCase().includes(search) ||
+          ch.country.toLowerCase().includes(search) ||
+          ch.group.toLowerCase().includes(search)
+        );
+      }
+
+      channelListEl.innerHTML = '';
+      
+      if (filtered.length === 0) {
+        channelListEl.innerHTML = '<div class="loading">No channels found</div>';
+        return;
+      }
+
+      filtered.forEach(ch => {
+        const div = document.createElement('div');
+        div.className = 'channel' + (currentChannel?.url === ch.url ? ' playing' : '');
+        
+        const logoDiv = document.createElement('div');
+        logoDiv.className = 'logo';
+        const img = document.createElement('img');
+        img.src = ch.logo;
+        img.onerror = () => {
+          logoDiv.innerHTML = `<span>${flags[ch.country] || ch.name[0]}</span>`;
+        };
+        logoDiv.appendChild(img);
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'ch-info';
+        infoDiv.innerHTML = `<div class="ch-name">${ch.name}</div><div class="ch-country">${countries[ch.country] || ch.country || ch.group}</div>`;
+        
+        div.appendChild(logoDiv);
+        div.appendChild(infoDiv);
+        div.onclick = () => playChannel(ch);
+        channelListEl.appendChild(div);
+      });
+    }
+
+    // Play channel
+    function playChannel(ch) {
+      currentChannel = ch;
+      nowPlayingEl.textContent = `Playing: ${ch.name}`;
+      
+      // Update UI
+      document.querySelectorAll('.channel').forEach(c => c.classList.remove('playing'));
+      renderChannels();
+      
+      // Destroy previous hls
       if (hls) {
         hls.destroy();
         hls = null;
       }
-      video.pause();
-      video.src = '';
+      player.pause();
+      player.src = '';
 
       // Try native HLS (Safari)
-      if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = url;
-        video.load();
-        video.play().catch(() => showStatus('Click play button to start', ''));
-        showStatus('Using native player', 'success');
+      if (player.canPlayType('application/vnd.apple.mpegurl')) {
+        player.src = ch.url;
+        player.load();
+        player.play().catch(() => {});
       }
-      // Use hls.js (Chrome, Firefox, etc.)
+      // Use hls.js
       else if (Hls.isSupported()) {
         hls = new Hls({
           enableWorker: true,
@@ -121,44 +226,72 @@
           backBufferLength: 30
         });
         
-        hls.loadSource(url);
-        hls.attachMedia(video);
-        
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          video.play().catch(() => showStatus('Click play to start', ''));
-          showStatus('Playing', 'success');
-        });
+        hls.loadSource(ch.url);
+        hls.attachMedia(player);
         
         hls.on(Hls.Events.ERROR, (event, data) => {
           if (data.fatal) {
-            showStatus('Stream error: ' + (data.details || 'Unknown error'), 'error');
+            console.error('HLS Error:', data);
           }
         });
+        
+        player.play().catch(() => {});
       }
       // Fallback
       else {
-        video.src = url;
-        video.load();
-        video.play().catch(() => showStatus('Click play button to start', ''));
+        player.src = ch.url;
+        player.load();
+        player.play().catch(() => {});
       }
     }
 
-    // Show status message
-    function showStatus(msg, type) {
-      statusEl.textContent = msg;
-      statusEl.className = 'status ' + type;
+    // Load playlist
+    async function loadPlaylist() {
+      const url = playlistUrlInput.value.trim();
+      if (!url) return;
+      
+      channelListEl.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading channels...</div>';
+      
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to fetch');
+        
+        const text = await response.text();
+        allChannels = parseM3U(text);
+        
+        if (allChannels.length === 0) {
+          channelListEl.innerHTML = '<div class="loading">No channels found in playlist</div>';
+          return;
+        }
+        
+        // Sort by name
+        allChannels.sort((a, b) => a.name.localeCompare(b.name));
+        
+        renderChannels();
+      } catch (error) {
+        console.error('Error:', error);
+        channelListEl.innerHTML = '<div class="loading">Error loading playlist. Check URL and try again.</div>';
+      }
     }
 
-    // Enter key to play
-    urlInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') playStream();
+    // Events
+    searchInput.addEventListener('input', renderChannels);
+    
+    playlistUrlInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') loadPlaylist();
+    });
+    
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        activeCategory = chip.dataset.cat;
+        renderChannels();
+      });
     });
 
-    // Handle video events
-    video.addEventListener('playing', () => showStatus('Playing', 'success'));
-    video.addEventListener('waiting', () => showStatus('Buffering...', ''));
-    video.addEventListener('error', () => showStatus('Playback error - stream may be offline', 'error'));
-    video.addEventListener('ended', () => showStatus('Stream ended', ''));
+    // Auto-load default playlist
+    loadPlaylist();
   </script>
 </body>
 </html>
