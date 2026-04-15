@@ -132,17 +132,13 @@
     <script src="https://unpkg.com/video.js@8/dist/video.min.js"></script>
 
     <script>
-      // Use iptv-org API instead of parsing M3U
-      const CHANNELS_JSON_URL = 'https://iptv-org.github.io/api/channels.json';
-      const STREAMS_JSON_URL  = 'https://iptv-org.github.io/api/streams.json';
+      // Use iptv-org M3U playlist directly
+      const M3U_URL = 'https://iptv-org.github.io/iptv/index.m3u';
+      const M3U_SPORTS_URL = 'https://iptv-org.github.io/iptv/regions/sports.m3u';
       
-      // Fallback URLs in case primary ones fail
-      const FALLBACK_CHANNELS_URL = 'https://raw.githubusercontent.com/iptv-org/iptv/master/channels.json';
-      const FALLBACK_STREAMS_URL = 'https://raw.githubusercontent.com/iptv-org/iptv/master/streams.json';
-      
-      // Additional fallback URLs
-      const FALLBACK_CHANNELS_URL2 = 'https://cdn.jsdelivr.net/gh/iptv-org/iptv@master/channels.json';
-      const FALLBACK_STREAMS_URL2 = 'https://cdn.jsdelivr.net/gh/iptv-org/iptv@master/streams.json';
+      // Fallback URLs for M3U
+      const FALLBACK_M3U_URL1 = 'https://raw.githubusercontent.com/iptv-org/iptv/master/index.m3u';
+      const FALLBACK_M3U_URL2 = 'https://cdn.jsdelivr.net/gh/iptv-org/iptv@master/index.m3u';
 
       const statusEl = document.getElementById('status');
       const nepalFirstEl = document.getElementById('nepalFirst');
@@ -608,7 +604,7 @@
             method: 'HEAD',
             signal: AbortSignal.timeout(2000)
           });
-          proxyAvailable = response.ok || response.status === 400; // 400 means endpoint exists but no URL param
+          proxyAvailable = response.ok || response.status === 400;
         } catch (e) {
           proxyAvailable = false;
         }
@@ -621,37 +617,11 @@
         return proxyAvailable ? `/api/hls?url=${encodeURIComponent(url)}` : url;
       }
 
-      // Test if a stream URL is accessible
-      async function testStreamUrl(url) {
-        try {
-          const testUrl = getStreamUrl(url);
-          const response = await fetch(testUrl, {
-            method: 'HEAD',
-            signal: AbortSignal.timeout(5000) // 5 second timeout
-          });
-          return response.ok;
-        } catch (e) {
-          console.warn('Stream test failed:', e);
-          return false;
-        }
-      }
-
       async function playEntry(entry) {
         nowPlayingEl.textContent = `Now playing: ${entry.__displayName}`;
         
         // Reset retry count for new stream
         retryCount = 0;
-        
-        // Test stream accessibility first (skip test for direct URLs as they may timeout)
-        if (proxyAvailable) {
-          setStatus('Testing stream...', false, true);
-          const isAccessible = await testStreamUrl(entry.url);
-          
-          if (!isAccessible) {
-            setStatus('Stream not accessible. Try another channel.', true);
-            return;
-          }
-        }
         
         try { 
           player.reset(); 
@@ -661,21 +631,20 @@
         
         setStatus('Loading stream...', false, true);
         
-        // Get the appropriate URL (proxied or direct)
-        const streamUrl = getStreamUrl(entry.url);
+        // Use direct URL - Video.js will handle the stream
+        const streamUrl = entry.url;
         
         // Preload the stream for faster playback
         player.src({ 
           src: streamUrl, 
-          type: 'application/x-mpegURL',
-          preload: 'metadata'
+          type: 'application/x-mpegURL'
         });
         
         // Try to play with better error handling
         player.ready(() => {
           player.play().catch((e) => {
             console.warn('Auto-play failed:', e);
-            setStatus('Click play to start stream');
+            setStatus('Click play button to start');
           });
         });
       }
@@ -748,86 +717,7 @@
         }
       }
 
-      async function loadFromApi() {
-        setStatus('Loading channels and streams…');
-        try {
-          // Check cache for streams data
-          const cachedStreams = getCachedData('streams-data');
-          if (cachedStreams) {
-            allEntries = cachedStreams;
-            setStatus(`Loaded ${allEntries.length} HLS channels from cache ✅`);
-            firstAutoPlayed = false;
-            renderList();
-            return;
-          }
-
-          await fetchChannelsMeta();
-          
-          setStatus('Fetching streams data...', false, true);
-          
-          // Use AbortController for timeout
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
-          
-          const res = await fetchWithFallback(STREAMS_JSON_URL, FALLBACK_STREAMS_URL, FALLBACK_STREAMS_URL2, { 
-            mode: 'cors',
-            signal: controller.signal,
-            headers: {
-              'Accept': 'application/json',
-              'Cache-Control': 'max-age=300'
-            }
-          });
-          
-          clearTimeout(timeoutId);
-          
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          const streams = await res.json();
-          
-          setStatus('Processing streams...', false, true);
-          
-          // Process streams in chunks to avoid blocking UI
-          allEntries = await processStreamsInChunks(streams);
-          
-          // Cache the processed data
-          setCachedData('streams-data', allEntries);
-          
-          setStatus(`Loaded ${allEntries.length} HLS channels ✅`);
-          firstAutoPlayed = false;
-          renderList();
-        } catch (err) {
-          console.error('API fetch error:', err);
-          
-          // Provide more specific error messages
-          let errorMessage = 'Failed to fetch iptv-org API. ';
-          if (err.name === 'AbortError') {
-            errorMessage += 'Request timed out. ';
-          } else if (err.message.includes('Failed to fetch')) {
-            errorMessage += 'Network error - check your internet connection. ';
-          } else if (err.message.includes('HTTP')) {
-            errorMessage += `Server error: ${err.message}. `;
-          } else {
-            errorMessage += `Error: ${err.message}. `;
-          }
-          
-          setStatus(errorMessage, true);
-          retryBtn.style.display = 'inline-block';
-          
-          // Try to load from cache as fallback
-          const cachedStreams = getCachedData('streams-data');
-          if (cachedStreams) {
-            allEntries = cachedStreams;
-            setStatus(`Loaded ${allEntries.length} HLS channels from cache (offline) ✅`);
-            firstAutoPlayed = false;
-            renderList();
-          } else {
-            // Try to load with a minimal fallback dataset
-            setStatus('Loading with minimal dataset...', false, true);
-            await loadMinimalDataset();
-          }
-        }
-      }
-
-      // Parse M3U/M3U8 playlist format
+      // Parse M3U/M3U8 playlist format from iptv-org
       function parseM3U(text) {
         const lines = text.split(/\r?\n/);
         const entries = [];
@@ -864,23 +754,9 @@
               currentEntry.__logo = currentEntry.attrs['tvg-logo'] || '';
               currentEntry.__logoCandidates = [];
               
-              // Build logo candidates
+              // Use the tvg-logo directly if available
               if (currentEntry.__logo) {
                 currentEntry.__logoCandidates.push(currentEntry.__logo);
-              }
-              const slug = slugifyName(currentEntry.name);
-              const cc = currentEntry.__country;
-              if (slug) {
-                currentEntry.__logoCandidates.push(
-                  `https://raw.githubusercontent.com/iptv-org/logos/master/${slug}.png`,
-                  `https://raw.githubusercontent.com/iptv-org/logos/master/${slug}.svg`
-                );
-                if (cc) {
-                  currentEntry.__logoCandidates.push(
-                    `https://raw.githubusercontent.com/iptv-org/logos/master/${cc}/${slug}.png`,
-                    `https://raw.githubusercontent.com/iptv-org/logos/master/${cc}/${slug}.svg`
-                  );
-                }
               }
               
               entries.push(currentEntry);
@@ -892,93 +768,73 @@
         return entries;
       }
 
+      // Filter entries for sports channels
+      function filterSportsChannels(entries) {
+        const sportsKeywords = /sports|cricket|football|soccer|espn|star sports|sony ten|sony six|bein|premier|laliga|bundesliga|serie a|fox sports|sky sports|willow|ptv|t\s*sports|nepal/i;
+        
+        return entries.filter(entry => {
+          const name = entry.__displayName.toLowerCase();
+          const group = (entry.attrs['group-title'] || '').toLowerCase();
+          const country = (entry.__country || '').toLowerCase();
+          
+          // Include if name or group contains sports keywords
+          if (sportsKeywords.test(name) || sportsKeywords.test(group)) {
+            return true;
+          }
+          
+          // Include sports-related countries' channels
+          if (['NP', 'IN', 'BD', 'PK', 'LK'].includes(entry.__country)) {
+            return true;
+          }
+          
+          return false;
+        });
+      }
+
       // Load from M3U playlist directly
       async function loadFromM3U() {
         const m3uUrls = [
-          'https://iptv-org.github.io/api/channels.json',
-          'https://raw.githubusercontent.com/iptv-org/iptv/main/categories/sports.m3u',
-          'https://cdn.jsdelivr.net/gh/iptv-org/iptv@master/categories/sports.m3u'
+          M3U_URL,
+          FALLBACK_M3U_URL1,
+          FALLBACK_M3U_URL2
         ];
         
         for (const m3uUrl of m3uUrls) {
           try {
-            setStatus(`Trying M3U: ${m3uUrl.split('/').pop()}...`, false, true);
+            setStatus(`Loading from iptv-org...`, false, true);
             const response = await fetch(m3uUrl, { 
               mode: 'cors',
-              signal: AbortSignal.timeout(15000)
+              signal: AbortSignal.timeout(30000)
             });
             
             if (response.ok) {
               const text = await response.text();
               
-              // Check if it's JSON (channels.json format) or M3U
-              if (text.trim().startsWith('[') || text.trim().startsWith('{')) {
-                // JSON format - convert to entries
-                try {
-                  const data = JSON.parse(text);
-                  if (Array.isArray(data)) {
-                    // It's the channels.json format
-                    allEntries = data
-                      .filter(ch => ch.url && (ch.url.includes('.m3u8') || ch.url.includes('.m3u')))
-                      .map(ch => ({
-                        name: ch.name || 'Unknown',
-                        url: ch.url,
-                        attrs: { 
-                          'tvg-id': ch.id || '',
-                          'tvg-country': ch.country || '',
-                          'tvg-logo': ch.logo || '',
-                          'group-title': ch.categories ? ch.categories.join(', ') : ''
-                        },
-                        __id: ch.id || '',
-                        __displayName: ch.name || 'Unknown',
-                        __logo: ch.logo || '',
-                        __logoCandidates: [],
-                        __country: (ch.country || '').toUpperCase()
-                      }));
-                    
-                    // Build logo candidates for each entry
-                    allEntries.forEach(entry => {
-                      const slug = slugifyName(entry.name);
-                      const cc = entry.__country;
-                      if (slug) {
-                        entry.__logoCandidates.push(
-                          `https://raw.githubusercontent.com/iptv-org/logos/master/${slug}.png`,
-                          `https://raw.githubusercontent.com/iptv-org/logos/master/${slug}.svg`
-                        );
-                        if (cc) {
-                          entry.__logoCandidates.push(
-                            `https://raw.githubusercontent.com/iptv-org/logos/master/${cc}/${slug}.png`,
-                            `https://raw.githubusercontent.com/iptv-org/logos/master/${cc}/${slug}.svg`
-                          );
-                        }
-                      }
-                      if (entry.__logo) {
-                        entry.__logoCandidates.unshift(entry.__logo);
-                      }
-                    });
-                  }
-                } catch (parseErr) {
-                  console.warn('JSON parse failed:', parseErr);
-                  continue;
-                }
-              } else {
-                // M3U format
-                allEntries = parseM3U(text);
-              }
+              // Parse M3U format
+              const allParsed = parseM3U(text);
               
-              if (allEntries.length > 0) {
+              if (allParsed.length > 0) {
+                // Filter for sports channels
+                allEntries = filterSportsChannels(allParsed);
+                
+                // If no sports channels found, use all channels
+                if (allEntries.length === 0) {
+                  allEntries = allParsed;
+                }
+                
                 // Set up country names
                 countryCodeToName = new Map([
                   ['IN', 'India'], ['US', 'United States'], ['GB', 'United Kingdom'],
                   ['NP', 'Nepal'], ['BD', 'Bangladesh'], ['PK', 'Pakistan'],
                   ['LK', 'Sri Lanka'], ['BT', 'Bhutan'], ['AU', 'Australia'],
-                  ['CA', 'Canada']
+                  ['CA', 'Canada'], ['TH', 'Thailand'], ['MY', 'Malaysia'],
+                  ['SG', 'Singapore'], ['ID', 'Indonesia'], ['PH', 'Philippines']
                 ]);
                 
                 // Cache the results
                 setCachedData('streams-data', allEntries);
                 
-                setStatus(`Loaded ${allEntries.length} channels from M3U ✅`);
+                setStatus(`Loaded ${allEntries.length} channels ✅`);
                 firstAutoPlayed = false;
                 renderList();
                 return true;
@@ -989,6 +845,55 @@
           }
         }
         return false;
+      }
+
+      async function loadFromApi() {
+        setStatus('Loading channels from iptv-org...');
+        try {
+          // Check cache for streams data
+          const cachedStreams = getCachedData('streams-data');
+          if (cachedStreams && cachedStreams.length > 0) {
+            allEntries = cachedStreams;
+            setStatus(`Loaded ${allEntries.length} channels from cache ✅`);
+            firstAutoPlayed = false;
+            renderList();
+            return;
+          }
+
+          // Load from M3U
+          const success = await loadFromM3U();
+          
+          if (!success) {
+            throw new Error('Failed to load from all M3U sources');
+          }
+        } catch (err) {
+          console.error('API fetch error:', err);
+          
+          let errorMessage = 'Failed to load channels. ';
+          if (err.name === 'AbortError') {
+            errorMessage += 'Request timed out. ';
+          } else if (err.message.includes('Failed to fetch') || err.message.includes('Failed to load')) {
+            errorMessage += 'Network error or server unavailable. ';
+          } else {
+            errorMessage += err.message;
+          }
+          
+          setStatus(errorMessage, true);
+          retryBtn.style.display = 'inline-block';
+          
+          // Try to load from cache as fallback
+          const cachedStreams = getCachedData('streams-data');
+          if (cachedStreams && cachedStreams.length > 0) {
+            allEntries = cachedStreams;
+            setStatus(`Loaded ${allEntries.length} channels from cache (offline) ✅`);
+            firstAutoPlayed = false;
+            renderList();
+          } else {
+            // Try to load with a minimal fallback dataset
+            setStatus('Loading fallback channels...', false, true);
+            await loadMinimalDataset();
+          }
+        }
       }
 
       // Load minimal dataset when all APIs fail
@@ -1104,35 +1009,8 @@
         });
       });
 
-      // Test API connectivity first
-      async function testApiConnectivity() {
-        try {
-          setStatus('Testing API connectivity...', false, true);
-          const testResponse = await fetch('https://iptv-org.github.io/api/channels.json', { 
-            method: 'HEAD',
-            mode: 'cors'
-          });
-          if (testResponse.ok) {
-            setStatus('API is accessible, loading channels...', false, true);
-            return true;
-          } else {
-            setStatus('API returned error, trying fallback...', false, true);
-            return false;
-          }
-        } catch (e) {
-          setStatus('API not accessible, trying fallback...', false, true);
-          return false;
-        }
-      }
-
-      // Initial load from API
-      async function initializeApp() {
-        await checkProxyAvailable();
-        await testApiConnectivity();
-        await loadFromApi();
-      }
-      
-      initializeApp();
+      // Initial load
+      loadFromApi();
     </script>
   </body>
 </html>
