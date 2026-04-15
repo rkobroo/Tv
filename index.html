@@ -3,15 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Live Sports TV (Cricfy-style) • Video.js + IPTV-org</title>
-
-    <!-- Video.js CSS -->
+    <title>Live Sports TV • Video.js + IPTV-org</title>
     <link href="https://unpkg.com/video.js@8/dist/video-js.min.css" rel="stylesheet" />
-
     <style>
       :root { color-scheme: light dark; }
       body {
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
         margin: 0; padding: 0; line-height: 1.5;
         background: #0b0f14; color: #e8edf2;
       }
@@ -20,6 +17,7 @@
       .muted { opacity: .85; }
       .danger { color: #ff7b7b; }
       .success { color: #5be49b; }
+      .warning { color: #f5d142; }
 
       header { padding: 12px 16px; background: #101722; border-bottom: 1px solid #1c2736; }
       header .topbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -50,6 +48,8 @@
       .channels { margin-top: 10px; padding-right: 8px; max-height: calc(100vh - 220px); overflow: auto; }
       .channel-card { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: center; padding: 8px; border-radius: 10px; background: #0f1722; border: 1px solid #233143; margin-bottom: 8px; cursor: pointer; }
       .channel-card:hover { background: #132033; }
+      .channel-card.offline { opacity: 0.5; border-color: #ff7b7b; }
+      .channel-card.playing { border-color: #5be49b; background: #0f1a12; }
       .channel-logo { width: 48px; height: 48px; border-radius: 8px; object-fit: contain; background: #000; }
       .channel-title { font-size: 14px; font-weight: 600; }
       .channel-meta { font-size: 12px; opacity: .8; }
@@ -77,13 +77,13 @@
   <body>
     <header>
       <div class="topbar">
-        <h1>Live Sports TV (Cricfy-style)</h1>
+        <h1>Live Sports TV</h1>
         <div class="toolbar">
-          <label title="Nepal-first sorting"><input id="nepalFirst" type="checkbox" checked /> Nepal-first</label>
-          <button id="reloadBtn" type="button">Reload</button>
-          <button id="retryBtn" type="button" style="display: none;">Retry</button>
+          <label><input id="nepalFirst" type="checkbox" checked /> Nepal-first</label>
+          <button id="reloadBtn" type="button">Refresh Channels</button>
+          <button id="autoPlayBtn" type="button">Auto Play Best</button>
         </div>
-        <div id="status" class="muted">Status: Ready</div>
+        <div id="status" class="muted">Loading channels...</div>
       </div>
     </header>
 
@@ -91,463 +91,256 @@
       <aside>
         <div class="panel">
           <div class="search-row">
-            <input id="search" type="text" placeholder="Search channels (e.g., Star Sports, Willow)" />
+            <input id="search" type="text" placeholder="Search channels..." />
             <button id="clearSearch" title="Clear">✕</button>
           </div>
-          <div class="chips" role="tablist" aria-label="Categories">
+          <div class="chips" role="tablist">
             <div class="chip active" data-cat="all">All</div>
             <div class="chip" data-cat="cricket">Cricket</div>
             <div class="chip" data-cat="football">Football</div>
           </div>
-          <label class="fav-toggle"><input id="onlyFav" type="checkbox" /> Show only favorites ⭐</label>
-
-          <div id="channelList" class="channels" aria-label="Channels list"></div>
+          <label class="fav-toggle"><input id="onlyFav" type="checkbox" /> Favorites ⭐</label>
+          <div id="channelList" class="channels"></div>
         </div>
       </aside>
 
       <main>
         <div class="player-wrap">
-          <div class="now-playing" id="nowPlaying">Now playing: —</div>
-          <video id="videoPlayer" class="video-js vjs-default-skin" controls preload="auto" playsinline data-setup='{"fluid": true}'></video>
+          <div class="now-playing" id="nowPlaying">Select a channel to play</div>
+          <video id="videoPlayer" class="video-js vjs-default-skin" controls preload="auto" playsinline></video>
         </div>
 
         <section style="margin-top:16px;">
           <details>
-            <summary>Notes: legal streams, CORS and geo</summary>
-            <ul>
-              <li><strong>Legal only</strong>: Uses channels listed by <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noreferrer noopener">iptv-org/iptv</a> (MIT).</li>
-              <li><strong>CORS</strong>: Some streams might block cross-origin playback.</li>
-              <li><strong>Geo</strong>: Some streams may be region-limited. For Nepal, keep Nepal-first enabled and prefer NP channels.</li>
-            </ul>
+            <summary>About & Sources</summary>
+            <p>Data from <a href="https://github.com/iptv-org/iptv" target="_blank">iptv-org/iptv</a> (MIT License).</p>
+            <p>Streamex support provided by <a href="https://github.com/basilfx/streamex" target="_blank">basilfx/streamex</a>.</p>
           </details>
         </section>
       </main>
     </div>
 
     <footer>
-      Built with <a href="https://videojs.com/" target="_blank" rel="noreferrer noopener">Video.js</a>. Data source: <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noreferrer noopener">iptv-org/iptv</a> (MIT).
+      Built with <a href="https://videojs.com/" target="_blank">Video.js</a>
     </footer>
 
-    <!-- Video.js JS -->
     <script src="https://unpkg.com/video.js@8/dist/video.min.js"></script>
-
     <script>
-      // Use iptv-org M3U playlist directly
-      const M3U_URL = 'https://iptv-org.github.io/iptv/index.m3u';
-      const M3U_SPORTS_URL = 'https://iptv-org.github.io/iptv/regions/sports.m3u';
+      // StreamEx CORS Proxy - Uses streamex.to for cross-origin requests
+      const CORS_PROXY = 'https://cors.streamex.to/';
       
-      // Fallback URLs for M3U
-      const FALLBACK_M3U_URL1 = 'https://raw.githubusercontent.com/iptv-org/iptv/master/index.m3u';
-      const FALLBACK_M3U_URL2 = 'https://cdn.jsdelivr.net/gh/iptv-org/iptv@master/index.m3u';
+      // Alternative CORS proxies
+      const PROXY_LIST = [
+        (url) => `https://cors.streamex.to/${url}`,
+        (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+        (url) => `https://proxy.cors.sh/${url}`
+      ];
+      
+      let currentProxyIndex = 0;
+      let proxyWorking = false;
 
+      function getProxyUrl(url) {
+        // For m3u8 files, try with proxy
+        if (url.includes('.m3u')) {
+          return PROXY_LIST[currentProxyIndex](url);
+        }
+        return url;
+      }
+
+      function rotateProxy() {
+        currentProxyIndex = (currentProxyIndex + 1) % PROXY_LIST.length;
+        console.log(`Using proxy ${currentProxyIndex + 1}: ${PROXY_LIST[currentProxyIndex].name || 'anonymous'}`);
+      }
+
+      // Status elements
       const statusEl = document.getElementById('status');
       const nepalFirstEl = document.getElementById('nepalFirst');
       const reloadBtn = document.getElementById('reloadBtn');
-      const retryBtn = document.getElementById('retryBtn');
-
       const searchEl = document.getElementById('search');
       const clearSearchBtn = document.getElementById('clearSearch');
       const channelListEl = document.getElementById('channelList');
       const onlyFavEl = document.getElementById('onlyFav');
       const nowPlayingEl = document.getElementById('nowPlaying');
+      const autoPlayBtn = document.getElementById('autoPlayBtn');
 
-      // Performance optimizations
-      const CACHE_KEY = 'iptv-cache';
-      const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-      const LOGO_CACHE = new Map();
-      const CONCURRENT_LOGO_LOADS = 10;
-      let logoLoadQueue = [];
-      let activeLogoLoads = 0;
+      // State
+      let allEntries = [];
+      let countryCodeToName = new Map([
+        ['IN', 'India'], ['US', 'United States'], ['GB', 'United Kingdom'],
+        ['NP', 'Nepal'], ['BD', 'Bangladesh'], ['PK', 'Pakistan'],
+        ['LK', 'Sri Lanka'], ['BT', 'Bhutan'], ['AU', 'Australia'],
+        ['CA', 'Canada'], ['TH', 'Thailand'], ['MY', 'Malaysia'],
+        ['SG', 'Singapore'], ['ID', 'Indonesia'], ['PH', 'Philippines']
+      ]);
+      let activeCategory = 'all';
+      let firstAutoPlayed = false;
+      let currentPlayingUrl = null;
+      let streamTestedUrls = new Map(); // url -> { working: boolean, tested: number }
 
+      // Caching
+      const CACHE_KEY = 'iptv-channels-cache';
+      const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+
+      function setStatus(msg, type = '') {
+        const cls = type === 'error' ? 'danger' : type === 'loading' ? 'loading-indicator' : 'success';
+        statusEl.innerHTML = type === 'loading' ? `<span class="loading-indicator"></span>${msg}` : `<span class="${cls}">${msg}</span>`;
+      }
+
+      function getCached() {
+        try {
+          const cached = localStorage.getItem(CACHE_KEY);
+          if (!cached) return null;
+          const { data, time } = JSON.parse(cached);
+          if (Date.now() - time > CACHE_DURATION) return null;
+          return data;
+        } catch { return null; }
+      }
+
+      function setCached(data) {
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ data, time: Date.now() }));
+        } catch (e) { console.warn('Cache failed:', e); }
+      }
+
+      // Flag emojis
+      const CC_TO_FLAG = { NP: '🇳🇵', IN: '🇮🇳', BD: '🇧🇩', PK: '🇵🇰', LK: '🇱🇰', BT: '🇧🇹', US: '🇺🇸', GB: '🇬🇧', AU: '🇦🇺', CA: '🇨🇦' };
+      const flagFor = (cc) => CC_TO_FLAG[(cc || '').toUpperCase()] || '';
+
+      // Video.js Player
       const player = videojs('videoPlayer', {
         autoplay: false,
         controls: true,
-        preload: 'metadata', // Changed from 'auto' for faster initial load
-        liveui: true,
-        responsive: true,
+        preload: 'auto',
         fluid: true,
         html5: {
           vhs: {
-            lowLatencyMode: true,
-            enableLowInitialPlaylist: true,
-            fastQualityChange: true,
-            smoothQualityChange: true,
-            limitRenditionByPlayerDimensions: true,
-            bandwidthInitial: 1000000, // Increased initial bandwidth
-            overrideNative: true, // Better HLS support
-            enableWorker: true, // Enable worker for better performance
-            experimentalBufferBasedABR: true, // Experimental but often better
-            experimentalLLHLS: true, // Low latency HLS support
-            maxPlaylistRetries: 5, // Increased retries
-            playlistLoadTimeout: 15000, // Increased timeout
-            segmentRequestTimeout: 15000, // Increased timeout
-            manifestRequestTimeout: 15000, // Increased timeout
-            allowSeeksWithinUnsafeLiveWindow: true, // Allow seeks in live streams
-            handlePartialData: true // Handle partial segments
-          }
-        },
-        // Additional performance settings
-        loadingSpinner: false, // Disable default spinner for custom loading
-        bigPlayButton: true,
-        textTrackSettings: false,
-        errorDisplay: false, // Custom error handling
-        // Add more robust settings
-        liveTolerance: 15, // Allow 15 seconds of live tolerance
-        liveBackBuffer: 30, // Keep 30 seconds of buffer
-        liveMaxLatencyDurationCount: 3, // Max latency duration count
-        liveMaxLatencyDuration: 10 // Max latency duration in seconds
-      });
-      player.addClass('vjs-live');
-      
-      // Enhanced live tracking with better performance
-      player.liveTracker && player.liveTracker.on('liveedgechange', () => {
-        if (player.liveTracker.isLive()) {
-          try { 
-            player.liveTracker.seekToLiveEdge(); 
-          } catch (e) {
-            console.warn('Live edge seek failed:', e);
+            overrideNative: true,
+            enableWorker: true,
+            lowLatencyMode: true
           }
         }
       });
 
-      // Enhanced error handling with retry logic
-      let retryCount = 0;
-      const MAX_RETRIES = 3;
-      
-      player.on('error', (event) => {
+      player.on('error', () => {
         const err = player.error();
-        const msg = err && err.message ? err.message : 'Unknown playback error';
         console.error('Player error:', err);
+        setStatus(`Stream error: ${err.message || 'Playback failed'}`, 'error');
         
-        // More specific error messages
-        let errorMessage = 'Stream error: ';
-        if (err && err.code) {
-          switch (err.code) {
-            case 1:
-              errorMessage += 'Video loading aborted';
-              break;
-            case 2:
-              errorMessage += 'Network error - check your connection';
-              break;
-            case 3:
-              errorMessage += 'Video decoding error';
-              break;
-            case 4:
-              errorMessage += 'Video format not supported';
-              break;
-            default:
-              errorMessage += msg;
-          }
-        } else {
-          errorMessage += msg;
-        }
-        
-        setStatus(errorMessage, true);
-        
-        // Auto-retry for certain errors
-        if (retryCount < MAX_RETRIES && err && err.code >= 2 && err.code <= 4) {
-          retryCount++;
-          setTimeout(() => {
-            setStatus(`Retrying stream... (${retryCount}/${MAX_RETRIES})`, false, true);
-            player.src(player.currentSrc());
-            player.play().catch((e) => {
-              console.warn('Retry play failed:', e);
-              if (retryCount >= MAX_RETRIES) {
-                setStatus('Stream failed after retries. Try another channel.', true);
-              }
-            });
-          }, 3000 * retryCount); // Longer delay between retries
-        } else {
-          retryCount = 0;
-          setStatus('Stream failed. Try another channel or check your connection.', true);
+        // Try next proxy if available
+        if (currentPlayingUrl) {
+          tryNextStream();
         }
       });
 
-      // Reset retry count on successful play
-      player.on('play', () => {
-        retryCount = 0;
+      player.on('playing', () => {
         setStatus('Playing ✅');
       });
 
-      // Loading state management
-      player.on('loadstart', () => setStatus('Loading stream...', false, true));
-      player.on('canplay', () => setStatus('Ready to play ✅'));
-      player.on('canplaythrough', () => setStatus('Stream ready ✅'));
-      player.on('waiting', () => setStatus('Buffering...', false, true));
-      player.on('seeking', () => setStatus('Seeking...', false, true));
-      player.on('seeked', () => setStatus('Seek complete ✅'));
-      
-      // Quality change events
-      player.on('loadeddata', () => {
-        const tech = player.tech();
-        if (tech && tech.vhs && tech.vhs.playlists) {
-          const currentPlaylist = tech.vhs.playlists.media();
-          if (currentPlaylist) {
-            const bandwidth = currentPlaylist.attributes.BANDWIDTH;
-            if (bandwidth) {
-              const quality = Math.round(bandwidth / 1000);
-              setStatus(`Playing at ${quality}kbps ✅`);
-            }
+      player.on('waiting', () => setStatus('Buffering...', 'loading'));
+      player.on('canplay', () => setStatus('Ready ✅'));
+
+      // Parse M3U
+      function parseM3U(text) {
+        const lines = text.split(/\r?\n/);
+        const entries = [];
+        let current = null;
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          
+          if (trimmed.startsWith('#EXTINF:')) {
+            const nameMatch = trimmed.match(/,#\s*(.+)/);
+            const tvgId = (trimmed.match(/tvg-id="([^"]*)"/) || [])[1] || '';
+            const country = ((trimmed.match(/tvg-country="([^"]*)"/) || [])[1] || '').toUpperCase();
+            const logo = (trimmed.match(/tvg-logo="([^"]*)"/) || [])[1] || '';
+            const group = (trimmed.match(/group-title="([^"]*)"/) || [])[1] || '';
+
+            current = { name: nameMatch ? nameMatch[1] : 'Unknown', tvgId, country, logo, group };
+          } else if (current && !trimmed.startsWith('#') && trimmed.includes('.m3u')) {
+            entries.push({
+              ...current,
+              url: trimmed,
+              __id: current.tvgId || current.name.toLowerCase().replace(/\s+/g, '-'),
+              __displayName: current.name,
+              __logo: current.logo,
+              __country: current.country
+            });
+            current = null;
           }
         }
-      });
-
-      function setStatus(message, isError = false, isLoading = false) {
-        const prefix = isLoading ? '<span class="loading-indicator"></span>' : '';
-        statusEl.innerHTML = prefix + (isError ? '<span class="danger">' : '<span class="success">') + message + '</span>';
+        return entries;
       }
 
-      // Caching utilities
-      function serializeForCache(data) {
-        if (data instanceof Map) {
-          return { __type: 'Map', value: Array.from(data.entries()) };
-        }
-        if (Array.isArray(data)) {
-          return data.map(serializeForCache);
-        }
-        if (data && typeof data === 'object') {
-          const result = {};
-          for (const key of Object.keys(data)) {
-            result[key] = serializeForCache(data[key]);
-          }
-          return result;
-        }
-        return data;
-      }
-
-      function deserializeFromCache(data) {
-        if (data && data.__type === 'Map') {
-          return new Map(data.value);
-        }
-        if (Array.isArray(data)) {
-          return data.map(deserializeFromCache);
-        }
-        if (data && typeof data === 'object') {
-          const result = {};
-          for (const key of Object.keys(data)) {
-            result[key] = deserializeFromCache(data[key]);
-          }
-          return result;
-        }
-        return data;
-      }
-
-      function getCachedData(key) {
-        try {
-          const cached = localStorage.getItem(key);
-          if (!cached) return null;
-          const { data, timestamp } = JSON.parse(cached);
-          if (Date.now() - timestamp > CACHE_DURATION) {
-            localStorage.removeItem(key);
-            return null;
-          }
-          return deserializeFromCache(data);
-        } catch {
-          return null;
-        }
-      }
-
-      // Fallback fetch function with multiple fallbacks
-      async function fetchWithFallback(primaryUrl, fallbackUrl, fallbackUrl2, options = {}) {
-        const urls = [primaryUrl, fallbackUrl, fallbackUrl2].filter(Boolean);
+      // Filter sports channels
+      function filterSports(entries) {
+        const sportsKw = /sports|cricket|football|soccer|espn|star\s*sports|sony\s*(six|ten)|bein|premier|laliga|bundesliga|serie\s*a|fox\s*sports|sky\s*sports|willow|ptv\s*sports|t\s*sports/i;
         
-        for (let i = 0; i < urls.length; i++) {
-          try {
-            console.log(`Trying URL ${i + 1}/${urls.length}: ${urls[i]}`);
-            const response = await fetch(urls[i], options);
-            if (response.ok) {
-              console.log(`Success with URL ${i + 1}: ${urls[i]}`);
-              return response;
-            }
-            throw new Error(`URL ${i + 1} failed: ${response.status}`);
-          } catch (error) {
-            console.warn(`URL ${i + 1} failed:`, error.message);
-            if (i === urls.length - 1) {
-              throw new Error(`All ${urls.length} URLs failed. Last error: ${error.message}`);
-            }
-          }
-        }
-      }
-
-      function setCachedData(key, data) {
-        try {
-          const serialized = serializeForCache(data);
-          localStorage.setItem(key, JSON.stringify({
-            data: serialized,
-            timestamp: Date.now()
-          }));
-        } catch (e) {
-          console.warn('Failed to cache data:', e);
-        }
-      }
-
-      // Optimized logo loading with concurrency control
-      function loadLogoWithConcurrency(imgEl, candidates) {
-        return new Promise((resolve) => {
-          const loadNext = () => {
-            if (candidates.length === 0) {
-              imgEl.style.display = 'none';
-              resolve(false);
-              return;
-            }
-
-            const url = candidates.shift();
-            
-            // Check cache first
-            if (LOGO_CACHE.has(url)) {
-              imgEl.src = LOGO_CACHE.get(url);
-              resolve(true);
-              return;
-            }
-
-            const img = new Image();
-            img.onload = () => {
-              LOGO_CACHE.set(url, url);
-              imgEl.src = url;
-              activeLogoLoads--;
-              processLogoQueue();
-              resolve(true);
-            };
-            img.onerror = () => {
-              activeLogoLoads--;
-              processLogoQueue();
-              loadNext();
-            };
-            img.src = url;
-            activeLogoLoads++;
-          };
-
-          logoLoadQueue.push(loadNext);
-          processLogoQueue();
+        return entries.filter(e => {
+          const name = e.__displayName.toLowerCase();
+          const group = e.group.toLowerCase();
+          const country = e.__country;
+          
+          if (sportsKw.test(name) || sportsKw.test(group)) return true;
+          if (['NP', 'IN', 'BD', 'PK', 'LK'].includes(country)) return true;
+          return false;
         });
       }
 
-      function processLogoQueue() {
-        while (logoLoadQueue.length > 0 && activeLogoLoads < CONCURRENT_LOGO_LOADS) {
-          const loadFn = logoLoadQueue.shift();
-          loadFn();
-        }
-      }
-
-      // Flags for quick country visualization
-      const CC_TO_FLAG = { NP: '🇳🇵', IN: '🇮🇳', BD: '🇧🇩', PK: '🇵🇰', LK: '🇱🇰', BT: '🇧🇹', US: '🇺🇸', GB: '🇬🇧', AU: '🇦🇺', CA: '🇨🇦' };
-      function flagFor(cc) { return (CC_TO_FLAG[(cc || '').toUpperCase()] || ''); }
-
-      // Category filter
-      let activeCategory = 'all';
-      function matchCategory(entry) {
-        const name = entry.__displayName.toLowerCase();
-        if (activeCategory === 'cricket') return /cricket|willow|star sports|sony sports|sony ten/.test(name);
-        if (activeCategory === 'football') return /football|soccer|bein|premier|laliga|bundesliga|serie a/.test(name);
-        return true;
-      }
-
-      // Data + rendering
-      let allEntries = [];
-      let channelIdToMeta = new Map(); // id -> { name, logo, country }
-      let firstAutoPlayed = false;
-      let countryCodeToName = new Map();
-
-      function slugifyName(name) {
-        return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-      }
-      function buildLogoCandidates(name, id, country, metaLogo) {
-        const base = 'https://raw.githubusercontent.com/iptv-org/logos/master';
-        const slug = slugifyName(name);
-        const cc = (country || '').toUpperCase();
-        const candidates = [];
-        if (metaLogo) candidates.push(metaLogo);
-        if (id) {
-          candidates.push(`${base}/${id}.png`, `${base}/${id}.svg`);
-        }
-        if (slug) {
-          candidates.push(`${base}/${slug}.png`, `${base}/${slug}.svg`);
-          if (cc) candidates.push(`${base}/${cc}/${slug}.png`, `${base}/${cc}/${slug}.svg`);
-        }
-        return candidates;
-      }
-
-      function hydrate(streams) {
-        const out = [];
-        const seen = new Set();
-        for (const s of streams) {
-          const url = s.url || '';
-          const isHls = /\.m3u8(\?|$)/i.test(url);
-          if (!isHls) continue;
-          if (s.status && s.status.toLowerCase() !== 'online') continue;
-          const id = s.channel || s.channel_id || s.channelId || '';
-          const meta = id && channelIdToMeta.get(id);
-          const name = (meta && meta.name) || id || 'Unknown';
-          const logo = (meta && meta.logo) || '';
-          const country = (meta && meta.country) || '';
-          const key = id || url;
-          if (seen.has(key)) continue; seen.add(key);
-          const logoCandidates = buildLogoCandidates(name, id, country, logo);
-          out.push({
-            name,
-            url,
-            attrs: { 'tvg-id': id, 'tvg-country': country, 'group-title': '' },
-            __id: id,
-            __displayName: name,
-            __logo: logoCandidates[0] || '',
-            __logoCandidates: logoCandidates.slice(1),
-            __country: country
-          });
-        }
-        return out;
-      }
-
+      // Sort for Nepal priority
       function sortForNepal(entries, enabled) {
-        const priorityNames = [
-          /\bsony\s*liv\b/i,
-          /\bsony\s*sports?\b/i,
-          /\bsony\s*ten\s*1\b/i,
-          /\bsony\s*ten\s*2\b/i,
-          /\bsony\s*ten\s*3\b/i,
-          /\bsony\s*ten\s*4\b/i,
-          /\bsony\s*ten\s*5\b/i,
-          /\bstar\s*sports?\b/i
-        ];
-        function nameScore(n) {
-          for (let i = 0; i < priorityNames.length; i++) {
-            if (priorityNames[i].test(n)) return i; // lower is better
+        const priority = [/\bsony\s*liv\b/i, /\bsony\s*sports?\b/i, /\bstar\s*sports?\b/i, /\bwillow\b/i, /\bcricket\b/i];
+        
+        function score(e) {
+          const name = e.__displayName;
+          for (let i = 0; i < priority.length; i++) {
+            if (priority[i].test(name)) return i;
           }
           return 999;
         }
+
         function countryScore(cc) {
           const order = ['NP', 'IN', 'BD', 'PK', 'LK', 'BT'];
-          const idx = order.indexOf((cc || '').toUpperCase());
+          const idx = order.indexOf(cc);
           return idx >= 0 ? idx : 999;
         }
+
         return entries.slice().sort((a, b) => {
-          const nA = nameScore(a.__displayName);
-          const nB = nameScore(b.__displayName);
+          const nA = score(a), nB = score(b);
           if (nA !== nB) return nA - nB;
-          if (!enabled) return a.__displayName.localeCompare(b.__displayName);
-          const cA = countryScore(a.__country);
-          const cB = countryScore(b.__country);
-          if (cA !== cB) return cA - cB;
+          if (enabled) {
+            const cA = countryScore(a.__country), cB = countryScore(b.__country);
+            if (cA !== cB) return cA - cB;
+          }
           return a.__displayName.localeCompare(b.__displayName);
         });
       }
 
       // Favorites
       const FAV_KEY = 'iptv-favorites';
-      function getFavorites() { try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch { return []; } }
-      function setFavorites(list) { try { localStorage.setItem(FAV_KEY, JSON.stringify(list)); } catch (e) { console.warn('Failed to save favorites:', e); } }
-      function isFav(url) { return getFavorites().includes(url); }
+      function getFavs() { try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch { return []; } }
+      function setFavs(list) { try { localStorage.setItem(FAV_KEY, JSON.stringify(list)); } catch {} }
+      function isFav(url) { return getFavs().includes(url); }
       function toggleFav(url) {
-        const favs = getFavorites();
-        const idx = favs.indexOf(url);
-        if (idx >= 0) favs.splice(idx, 1); else favs.push(url);
-        setFavorites(favs);
+        const f = getFavs(), idx = f.indexOf(url);
+        if (idx >= 0) f.splice(idx, 1); else f.push(url);
+        setFavs(f);
       }
 
+      // Category filter
+      function matchCategory(e) {
+        const name = e.__displayName.toLowerCase();
+        if (activeCategory === 'cricket') return /cricket|willow|star\s*sports|sony\s*(six|ten)/i.test(name);
+        if (activeCategory === 'football') return /football|soccer|premier|laliga|bundesliga|serie\s*a/i.test(name);
+        return true;
+      }
+
+      // Render channel list
       function renderList() {
         const q = (searchEl.value || '').trim().toLowerCase();
         const onlyFav = onlyFavEl.checked;
-        const entries = sortForNepal(allEntries, nepalFirstEl.checked).filter(e => {
-          if (q && !(`${e.__displayName} ${(e.__country||'')}`.toLowerCase().includes(q))) return false;
+
+        let entries = sortForNepal(allEntries, nepalFirstEl.checked).filter(e => {
+          if (q && !`${e.__displayName} ${e.__country}`.toLowerCase().includes(q)) return false;
           if (!matchCategory(e)) return false;
           if (onlyFav && !isFav(e.url)) return false;
           return true;
@@ -555,462 +348,182 @@
 
         channelListEl.innerHTML = '';
         if (!entries.length) {
-          channelListEl.innerHTML = '<div class="muted" style="padding:8px;">No channels match your filters.</div>';
+          channelListEl.innerHTML = '<div style="padding:12px;color:#888;">No channels found</div>';
           return;
         }
 
         entries.forEach((entry, idx) => {
           const card = document.createElement('div');
-          card.className = 'channel-card';
+          card.className = 'channel-card' + (currentPlayingUrl === entry.url ? ' playing' : '');
           card.innerHTML = `
-            <img class="channel-logo" alt="logo" />
+            <img class="channel-logo" src="${entry.__logo || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22/>'}" onerror="this.style.display='none'" alt="" />
             <div>
               <div class="channel-title">${flagFor(entry.__country)} ${entry.__displayName}</div>
-              <div class="channel-meta">${entry.__country ? (countryCodeToName.get(entry.__country) || entry.__country) : '—'}</div>
+              <div class="channel-meta">${countryCodeToName.get(entry.__country) || entry.__country || '—'}</div>
             </div>
-            <div class="star ${isFav(entry.url) ? '' : 'inactive'}" title="Toggle favorite">★</div>
+            <div class="star ${isFav(entry.url) ? '' : 'inactive'}">★</div>
           `;
 
-          const imgEl = card.querySelector('img.channel-logo');
-          const logoCandidates = [entry.__logo, ...(entry.__logoCandidates || [])].filter(Boolean);
-          
-          // Use optimized logo loading
-          loadLogoWithConcurrency(imgEl, logoCandidates);
-
-          const starEl = card.querySelector('.star');
-          starEl.addEventListener('click', (ev) => {
+          card.querySelector('.star').onclick = (ev) => {
             ev.stopPropagation();
             toggleFav(entry.url);
-            starEl.classList.toggle('inactive');
-            if (onlyFavEl.checked && starEl.classList.contains('inactive')) card.remove();
-          });
+            renderList();
+          };
 
-          card.addEventListener('click', () => playEntry(entry));
+          card.onclick = () => playChannel(entry);
           channelListEl.appendChild(card);
 
+          // Auto-play first channel
           if (!firstAutoPlayed && idx === 0) {
             firstAutoPlayed = true;
-            playEntry(entry);
+            // Don't auto-play, let user choose
           }
         });
       }
 
-      // Detect if proxy is available
-      let proxyAvailable = null;
-      async function checkProxyAvailable() {
-        if (proxyAvailable !== null) return proxyAvailable;
-        try {
-          const response = await fetch('/api/hls', {
-            method: 'HEAD',
-            signal: AbortSignal.timeout(2000)
-          });
-          proxyAvailable = response.ok || response.status === 400;
-        } catch (e) {
-          proxyAvailable = false;
-        }
-        console.log('Proxy available:', proxyAvailable);
-        return proxyAvailable;
-      }
-
-      // Get stream URL (proxied if available, direct otherwise)
-      function getStreamUrl(url) {
-        return proxyAvailable ? `/api/hls?url=${encodeURIComponent(url)}` : url;
-      }
-
-      async function playEntry(entry) {
-        nowPlayingEl.textContent = `Now playing: ${entry.__displayName}`;
+      // Try alternative streams for same channel
+      function tryNextStream() {
+        if (!currentPlayingUrl) return;
         
-        // Reset retry count for new stream
-        retryCount = 0;
+        const sameChannel = allEntries.filter(e => 
+          e.__displayName === (allEntries.find(x => x.url === currentPlayingUrl)?.__displayName)
+        );
         
-        try { 
-          player.reset(); 
-        } catch (e) {
-          console.warn('Player reset failed:', e);
-        }
-        
-        setStatus('Loading stream...', false, true);
-        
-        // Use direct URL - Video.js will handle the stream
-        const streamUrl = entry.url;
-        
-        // Preload the stream for faster playback
-        player.src({ 
-          src: streamUrl, 
-          type: 'application/x-mpegURL'
-        });
-        
-        // Try to play with better error handling
-        player.ready(() => {
-          player.play().catch((e) => {
-            console.warn('Auto-play failed:', e);
-            setStatus('Click play button to start');
-          });
-        });
-      }
-
-      async function fetchChannelsMeta() {
-        try {
-          // Check cache first
-          const cachedChannels = getCachedData('channels-meta');
-          const cachedCountries = getCachedData('countries-meta');
-          
-          if (cachedChannels && cachedCountries) {
-            channelIdToMeta = cachedChannels;
-            countryCodeToName = cachedCountries;
+        for (const entry of sameChannel) {
+          if (entry.url !== currentPlayingUrl && !streamTestedUrls.get(entry.url)?.working === false) {
+            playChannel(entry);
             return;
           }
-
-          setStatus('Loading channel metadata...', false, true);
-          
-          // Use AbortController for timeout
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
-
-          const [channelsRes, countriesRes] = await Promise.all([
-            fetchWithFallback(CHANNELS_JSON_URL, FALLBACK_CHANNELS_URL, FALLBACK_CHANNELS_URL2, { 
-              mode: 'cors',
-              signal: controller.signal,
-              headers: {
-                'Accept': 'application/json',
-                'Cache-Control': 'max-age=300' // 5 minutes
-              }
-            }),
-            fetchWithFallback('https://iptv-org.github.io/api/countries.json', 'https://raw.githubusercontent.com/iptv-org/iptv/master/countries.json', 'https://cdn.jsdelivr.net/gh/iptv-org/iptv@master/countries.json', { 
-              mode: 'cors',
-              signal: controller.signal,
-              headers: {
-                'Accept': 'application/json',
-                'Cache-Control': 'max-age=300'
-              }
-            })
-          ]);
-          
-          clearTimeout(timeoutId);
-          
-          if (!channelsRes.ok) throw new Error('channels HTTP ' + channelsRes.status);
-          const arr = await channelsRes.json();
-          
-          countryCodeToName = new Map();
-          if (countriesRes.ok) {
-            const countries = await countriesRes.json();
-            countries.forEach(c => { 
-              if (c.code) countryCodeToName.set((c.code || '').toUpperCase(), c.name || c.code); 
-            });
-          }
-          
-          channelIdToMeta = new Map(arr.map(x => [x.id, { 
-            name: x.name, 
-            logo: x.logo || '', 
-            country: (x.country || '').toUpperCase() 
-          }]));
-
-          // Cache the results
-          setCachedData('channels-meta', channelIdToMeta);
-          setCachedData('countries-meta', countryCodeToName);
-          
-        } catch (e) {
-          console.warn('Failed to load channels/countries json:', e);
-          setStatus(`Channel metadata error: ${e.message}`, true);
-          channelIdToMeta = new Map();
-          countryCodeToName = new Map();
-        }
-      }
-
-      // Parse M3U/M3U8 playlist format from iptv-org
-      function parseM3U(text) {
-        const lines = text.split(/\r?\n/);
-        const entries = [];
-        let currentEntry = null;
-        
-        for (const line of lines) {
-          const trimmed = line.trim();
-          
-          if (trimmed.startsWith('#EXTINF:')) {
-            const match = trimmed.match(/#EXTINF:[^,]*,\s*(.*)/);
-            const name = match ? match[1] : 'Unknown';
-            
-            const tvgIdMatch = trimmed.match(/tvg-id="([^"]*)"/);
-            const tvgCountryMatch = trimmed.match(/tvg-country="([^"]*)"/);
-            const tvgLogoMatch = trimmed.match(/tvg-logo="([^"]*)"/);
-            const groupMatch = trimmed.match(/group-title="([^"]*)"/);
-            
-            currentEntry = {
-              name: name,
-              attrs: {
-                'tvg-id': tvgIdMatch ? tvgIdMatch[1] : '',
-                'tvg-country': tvgCountryMatch ? tvgCountryMatch[1] : '',
-                'tvg-logo': tvgLogoMatch ? tvgLogoMatch[1] : '',
-                'group-title': groupMatch ? groupMatch[1] : ''
-              },
-              __country: tvgCountryMatch ? tvgCountryMatch[1].toUpperCase() : ''
-            };
-          } else if (currentEntry && !trimmed.startsWith('#') && trimmed.length > 0) {
-            // This is the URL
-            if (trimmed.includes('.m3u8') || trimmed.includes('.m3u')) {
-              currentEntry.url = trimmed;
-              currentEntry.__id = currentEntry.attrs['tvg-id'] || currentEntry.name.toLowerCase().replace(/\s+/g, '-');
-              currentEntry.__displayName = currentEntry.name;
-              currentEntry.__logo = currentEntry.attrs['tvg-logo'] || '';
-              currentEntry.__logoCandidates = [];
-              
-              // Use the tvg-logo directly if available
-              if (currentEntry.__logo) {
-                currentEntry.__logoCandidates.push(currentEntry.__logo);
-              }
-              
-              entries.push(currentEntry);
-              currentEntry = null;
-            }
-          }
         }
         
-        return entries;
+        setStatus('Stream unavailable. Try another channel.', 'error');
       }
 
-      // Filter entries for sports channels
-      function filterSportsChannels(entries) {
-        const sportsKeywords = /sports|cricket|football|soccer|espn|star sports|sony ten|sony six|bein|premier|laliga|bundesliga|serie a|fox sports|sky sports|willow|ptv|t\s*sports|nepal/i;
-        
-        return entries.filter(entry => {
-          const name = entry.__displayName.toLowerCase();
-          const group = (entry.attrs['group-title'] || '').toLowerCase();
-          const country = (entry.__country || '').toLowerCase();
-          
-          // Include if name or group contains sports keywords
-          if (sportsKeywords.test(name) || sportsKeywords.test(group)) {
-            return true;
+      // Play channel
+      async function playChannel(entry) {
+        currentPlayingUrl = entry.url;
+        nowPlayingEl.textContent = `Playing: ${entry.__displayName}`;
+        setStatus('Loading stream...', 'loading');
+
+        // Mark current in UI
+        document.querySelectorAll('.channel-card').forEach(c => c.classList.remove('playing'));
+        const cards = channelListEl.querySelectorAll('.channel-card');
+        cards.forEach((c, i) => {
+          if (sortForNepal(allEntries, nepalFirstEl.checked).filter(matchCategory)[i]?.url === entry.url) {
+            c.classList.add('playing');
           }
-          
-          // Include sports-related countries' channels
-          if (['NP', 'IN', 'BD', 'PK', 'LK'].includes(entry.__country)) {
-            return true;
-          }
-          
-          return false;
         });
+
+        try {
+          player.reset();
+          const streamUrl = getProxyUrl(entry.url);
+          player.src({ src: streamUrl, type: 'application/x-mpegURL' });
+          player.ready(() => player.play().catch(() => setStatus('Click play to start')));
+        } catch (e) {
+          console.error('Play error:', e);
+          setStatus('Failed to load stream', 'error');
+        }
       }
 
-      // Load from M3U playlist directly
-      async function loadFromM3U() {
-        const m3uUrls = [
-          M3U_URL,
-          FALLBACK_M3U_URL1,
-          FALLBACK_M3U_URL2
-        ];
+      // Auto-play best available channel
+      async function autoPlayBest() {
+        setStatus('Finding best channel...', 'loading');
         
-        for (const m3uUrl of m3uUrls) {
-          try {
-            setStatus(`Loading from iptv-org...`, false, true);
-            const response = await fetch(m3uUrl, { 
-              mode: 'cors',
-              signal: AbortSignal.timeout(30000)
-            });
-            
-            if (response.ok) {
-              const text = await response.text();
-              
-              // Parse M3U format
-              const allParsed = parseM3U(text);
-              
-              if (allParsed.length > 0) {
-                // Filter for sports channels
-                allEntries = filterSportsChannels(allParsed);
-                
-                // If no sports channels found, use all channels
-                if (allEntries.length === 0) {
-                  allEntries = allParsed;
-                }
-                
-                // Set up country names
-                countryCodeToName = new Map([
-                  ['IN', 'India'], ['US', 'United States'], ['GB', 'United Kingdom'],
-                  ['NP', 'Nepal'], ['BD', 'Bangladesh'], ['PK', 'Pakistan'],
-                  ['LK', 'Sri Lanka'], ['BT', 'Bhutan'], ['AU', 'Australia'],
-                  ['CA', 'Canada'], ['TH', 'Thailand'], ['MY', 'Malaysia'],
-                  ['SG', 'Singapore'], ['ID', 'Indonesia'], ['PH', 'Philippines']
-                ]);
-                
-                // Cache the results
-                setCachedData('streams-data', allEntries);
-                
-                setStatus(`Loaded ${allEntries.length} channels ✅`);
-                firstAutoPlayed = false;
-                renderList();
-                return true;
+        const priorityNames = ['Sony Liv', 'Star Sports', 'Willow', 'PTV Sports', 'T Sports'];
+        
+        for (const priorityName of priorityNames) {
+          const matches = allEntries.filter(e => e.__displayName.toLowerCase().includes(priorityName.toLowerCase()));
+          for (const entry of matches) {
+            await new Promise(r => setTimeout(r, 100));
+            try {
+              const resp = await fetch(getProxyUrl(entry.url), { method: 'HEAD', timeout: 5000 });
+              if (resp.ok) {
+                playChannel(entry);
+                setStatus('Auto-played best channel ✅');
+                return;
               }
+            } catch {}
+          }
+        }
+        
+        // Just play first available
+        if (allEntries.length > 0) {
+          playChannel(allEntries[0]);
+          setStatus('Playing first channel ✅');
+        } else {
+          setStatus('No channels available', 'error');
+        }
+      }
+
+      // Load channels from iptv-org
+      async function loadChannels() {
+        const cached = getCached();
+        if (cached) {
+          allEntries = cached;
+          setStatus(`Loaded ${allEntries.length} channels from cache`);
+          renderList();
+          return;
+        }
+
+        const urls = [
+          'https://iptv-org.github.io/iptv/index.m3u',
+          'https://raw.githubusercontent.com/iptv-org/iptv/master/index.m3u',
+          'https://cdn.jsdelivr.net/gh/iptv-org/iptv@master/index.m3u'
+        ];
+
+        for (const url of urls) {
+          try {
+            setStatus('Fetching channels...', 'loading');
+            const resp = await fetch(url, { timeout: 30000 });
+            if (resp.ok) {
+              const text = await resp.text();
+              const parsed = parseM3U(text);
+              allEntries = filterSports(parsed);
+              
+              if (allEntries.length === 0) allEntries = parsed;
+              
+              setCached(allEntries);
+              setStatus(`Loaded ${allEntries.length} channels ✅`);
+              renderList();
+              return;
             }
           } catch (e) {
-            console.warn(`M3U load failed for ${m3uUrl}:`, e.message);
+            console.warn(`Failed to load from ${url}:`, e);
           }
         }
-        return false;
-      }
 
-      async function loadFromApi() {
-        setStatus('Loading channels from iptv-org...');
-        try {
-          // Check cache for streams data
-          const cachedStreams = getCachedData('streams-data');
-          if (cachedStreams && cachedStreams.length > 0) {
-            allEntries = cachedStreams;
-            setStatus(`Loaded ${allEntries.length} channels from cache ✅`);
-            firstAutoPlayed = false;
-            renderList();
-            return;
-          }
-
-          // Load from M3U
-          const success = await loadFromM3U();
-          
-          if (!success) {
-            throw new Error('Failed to load from all M3U sources');
-          }
-        } catch (err) {
-          console.error('API fetch error:', err);
-          
-          let errorMessage = 'Failed to load channels. ';
-          if (err.name === 'AbortError') {
-            errorMessage += 'Request timed out. ';
-          } else if (err.message.includes('Failed to fetch') || err.message.includes('Failed to load')) {
-            errorMessage += 'Network error or server unavailable. ';
-          } else {
-            errorMessage += err.message;
-          }
-          
-          setStatus(errorMessage, true);
-          retryBtn.style.display = 'inline-block';
-          
-          // Try to load from cache as fallback
-          const cachedStreams = getCachedData('streams-data');
-          if (cachedStreams && cachedStreams.length > 0) {
-            allEntries = cachedStreams;
-            setStatus(`Loaded ${allEntries.length} channels from cache (offline) ✅`);
-            firstAutoPlayed = false;
-            renderList();
-          } else {
-            // Try to load with a minimal fallback dataset
-            setStatus('Loading fallback channels...', false, true);
-            await loadMinimalDataset();
-          }
-        }
-      }
-
-      // Load minimal dataset when all APIs fail
-      async function loadMinimalDataset() {
-        try {
-          setStatus('Loading fallback channels...', false, true);
-          
-          // Try M3U first
-          const m3uLoaded = await loadFromM3U();
-          if (m3uLoaded) return;
-          
-          // Fallback to hardcoded sports channels
-          const minimalChannels = [
-            { name: "Star Sports 1", url: "https://stream.shahid MBCgroup.com/live/espn_south_asia_nogrp/playlist.m3u8", country: "IN", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/in/star-sports-1.png" },
-            { name: "Star Sports 2", url: "https://stream.shahid MBCgroup.com/live/espn_india_nogrp/playlist.m3u8", country: "IN", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/in/star-sports-2.png" },
-            { name: "Star Sports Cricket", url: "https://stream.shahid MBCgroup.com/live/espn_in_hd/playlist.m3u8", country: "IN", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/in/star-sports-hd.png" },
-            { name: "Sony Ten 1", url: "https://stream.shahid MBCgroup.com/live/sony_six_nogrp/playlist.m3u8", country: "IN", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/in/sony-ten-1.png" },
-            { name: "Willow Cricket", url: "https://stream.shahid MBCgroup.com/live/willow_hd/playlist.m3u8", country: "US", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/us/willow-cricket.png" },
-            { name: "PTV Sports", url: "https://stream.shahid MBCgroup.com/live/ptv_sports/playlist.m3u8", country: "PK", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/pk/ptv-sports.png" },
-            { name: "T Sports", url: "https://stream.shahid MBCgroup.com/live/tsports_live/playlist.m3u8", country: "BD", logo: "https://raw.githubusercontent.com/iptv-org/logos/master/bd/t-sports.png" }
-          ];
-
-          allEntries = minimalChannels.map(channel => ({
-            name: channel.name,
-            url: channel.url,
-            attrs: { 
-              'tvg-id': channel.name.toLowerCase().replace(/\s+/g, '-'),
-              'tvg-country': channel.country,
-              'group-title': 'Sports'
-            },
-            __id: channel.name.toLowerCase().replace(/\s+/g, '-'),
-            __displayName: channel.name,
-            __logo: channel.logo,
-            __logoCandidates: [],
-            __country: channel.country
-          }));
-
-          countryCodeToName = new Map([
-            ['IN', 'India'], ['US', 'United States'], ['GB', 'United Kingdom'],
-            ['NP', 'Nepal'], ['BD', 'Bangladesh'], ['PK', 'Pakistan']
-          ]);
-
-          setStatus(`Loaded ${allEntries.length} fallback channels ✅`);
-          firstAutoPlayed = false;
-          renderList();
-          
-        } catch (e) {
-          console.error('Failed to load fallback dataset:', e);
-          setStatus('Unable to load channels. Please check internet connection.', true);
-          retryBtn.style.display = 'inline-block';
-        }
-      }
-
-      // Process streams in chunks to avoid blocking UI
-      async function processStreamsInChunks(streams) {
-        const chunkSize = 1000;
-        const chunks = [];
-        for (let i = 0; i < streams.length; i += chunkSize) {
-          chunks.push(streams.slice(i, i + chunkSize));
-        }
-        
-        const processedEntries = [];
-        for (let i = 0; i < chunks.length; i++) {
-          const chunk = chunks[i];
-          const hydrated = hydrate(chunk);
-          processedEntries.push(...hydrated);
-          
-          // Update status for large datasets
-          if (chunks.length > 1) {
-            setStatus(`Processing streams... ${Math.round((i + 1) / chunks.length * 100)}%`);
-          }
-          
-          // Allow UI to update
-          if (i % 5 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 0));
-          }
-        }
-        
-        return processedEntries;
-      }
-
-      // Debounced search for better performance
-      let searchTimeout;
-      function debouncedSearch() {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-          firstAutoPlayed = false;
-          renderList();
-        }, 300); // 300ms delay
+        setStatus('Failed to load channels. Check internet.', 'error');
       }
 
       // Events
-      reloadBtn.addEventListener('click', () => {
-        retryBtn.style.display = 'none';
-        loadFromApi();
-      });
-      retryBtn.addEventListener('click', () => {
-        retryBtn.style.display = 'none';
-        loadFromApi();
-      });
-      nepalFirstEl.addEventListener('change', () => { firstAutoPlayed = false; renderList(); });
-      searchEl.addEventListener('input', debouncedSearch);
-      clearSearchBtn.addEventListener('click', () => { searchEl.value = ''; firstAutoPlayed = false; renderList(); });
-      onlyFavEl.addEventListener('change', () => { firstAutoPlayed = false; renderList(); });
+      reloadBtn.onclick = () => {
+        localStorage.removeItem(CACHE_KEY);
+        loadChannels();
+      };
+      
+      autoPlayBtn.onclick = autoPlayBest;
+      
+      nepalFirstEl.onchange = () => { firstAutoPlayed = false; renderList(); };
+      onlyFavEl.onchange = () => renderList();
+      
+      searchEl.oninput = () => {
+        clearTimeout(window.searchTimer);
+        window.searchTimer = setTimeout(renderList, 300);
+      };
+      
+      clearSearchBtn.onclick = () => { searchEl.value = ''; renderList(); };
 
       document.querySelectorAll('.chip').forEach(ch => {
-        ch.addEventListener('click', () => {
+        ch.onclick = () => {
           document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
           ch.classList.add('active');
-          activeCategory = ch.getAttribute('data-cat');
-          firstAutoPlayed = false;
+          activeCategory = ch.dataset.cat;
           renderList();
-        });
+        };
       });
 
-      // Initial load
-      loadFromApi();
+      // Start
+      loadChannels();
     </script>
   </body>
 </html>
