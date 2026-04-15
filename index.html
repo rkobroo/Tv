@@ -195,6 +195,12 @@
       });
     }
 
+    // CORS proxy for video streams
+    function getStreamUrl(url) {
+      // Use corsproxy.io - wraps the URL
+      return `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    }
+
     // Play channel
     function playChannel(ch) {
       currentChannel = ch;
@@ -212,13 +218,15 @@
       player.pause();
       player.src = '';
 
-      // Try native HLS (Safari)
-      if (player.canPlayType('application/vnd.apple.mpegurl')) {
-        player.src = ch.url;
+      const streamUrl = getStreamUrl(ch.url);
+
+      // Try native HLS (Safari) - but Safari might not work with proxy
+      if (player.canPlayType('application/vnd.apple.mpegurl') && false) {
+        player.src = streamUrl;
         player.load();
         player.play().catch(() => {});
       }
-      // Use hls.js
+      // Use hls.js with proxy
       else if (Hls.isSupported()) {
         hls = new Hls({
           enableWorker: true,
@@ -226,7 +234,7 @@
           backBufferLength: 30
         });
         
-        hls.loadSource(ch.url);
+        hls.loadSource(streamUrl);
         hls.attachMedia(player);
         
         hls.on(Hls.Events.ERROR, (event, data) => {
@@ -237,9 +245,9 @@
         
         player.play().catch(() => {});
       }
-      // Fallback
+      // Fallback - direct
       else {
-        player.src = ch.url;
+        player.src = streamUrl;
         player.load();
         player.play().catch(() => {});
       }
