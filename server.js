@@ -24,7 +24,8 @@ const server = http.createServer(async (req, res) => {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(200);
@@ -32,7 +33,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Proxy endpoint
+  // Proxy endpoint - optimized for streaming
   if (pathname.startsWith('/proxy')) {
     const targetUrl = parsed.query.url;
     if (!targetUrl) {
@@ -41,48 +42,76 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    console.log('Proxy:', targetUrl.substring(0, 60));
-
     const headers = {
-      'User-Agent': 'Mozilla/5.0',
-      'Accept': '*/*'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': '*/*',
+      'Accept-Encoding': 'identity', // Don't accept compressed
+      'Connection': 'keep-alive'
     };
 
     const protocol = targetUrl.startsWith('https') ? https : http;
     
     try {
-      protocol.get(targetUrl, { headers, timeout: 30000 }, (proxyRes) => {
+      const proxyReq = protocol.get(targetUrl, { headers, timeout: 15000 }, (proxyRes) => {
         const ct = proxyRes.headers['content-type'] || '';
         const isPlaylist = ct.includes('mpegurl') || ct.includes('text/plain') || targetUrl.endsWith('.m3u') || targetUrl.endsWith('.m3u8');
         
         res.setHeader('Content-Type', isPlaylist ? 'application/vnd.apple.mpegurl' : ct);
+        res.setHeader('Cache-Control', 'no-cache, no-store');
+        res.setHeader('Connection', 'keep-alive');
         
+        // For playlists, rewrite URLs and stream immediately
         if (isPlaylist) {
-          let data = '';
-          proxyRes.on('data', chunk => data += chunk);
-          proxyRes.on('end', () => {
-            const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
-            const lines = data.split(/\r?\n/).map(line => {
+          const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
+          
+          proxyRes.on('data', (chunk) => {
+            const lines = chunk.toString().split(/\r?\n/);
+            const rewritten = lines.map(line => {
               line = line.trim();
               if (!line || line.startsWith('#')) return line;
               if (!line.startsWith('http')) {
-                return `/proxy?url=${encodeURIComponent(new URL(line, baseUrl).toString())}`;
+                try {
+                  const absoluteUrl = new URL(line, baseUrl).toString();
+                  return `/proxy?url=${encodeURIComponent(absoluteUrl)}`;
+                } catch { return line; }
               }
               return `/proxy?url=${encodeURIComponent(line)}`;
-            }).join('\n');
-            res.end(lines);
+            }).join('\n') + '\n';
+            
+            res.write(rewritten);
+          });
+          
+          proxyRes.on('end', () => {
+            res.end();
           });
         } else {
-          res.writeHead(proxyRes.statusCode);
+          // Binary - stream directly
+          res.writeHead(proxyRes.statusCode, proxyRes.headers);
           proxyRes.pipe(res);
         }
-      }).on('error', (err) => {
-        res.writeHead(502, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
       });
+
+      proxyReq.on('error', (err) => {
+        console.error('Proxy error:', err.message);
+        if (!res.headersSent) {
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+
+      proxyReq.on('timeout', () => {
+        proxyReq.destroy();
+        if (!res.headersSent) {
+          res.writeHead(504);
+          res.end();
+        }
+      });
+
     } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
     }
     return;
   }
@@ -105,7 +134,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log('\n===========================================');
-  console.log('  LIVE SPORTS TV SERVER');
+  console.log('  LIVE SPORTS TV - Streaming Server');
   console.log('===========================================');
   console.log(`  Open: http://localhost:${PORT}`);
   console.log('===========================================\n');

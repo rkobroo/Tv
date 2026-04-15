@@ -94,7 +94,7 @@
 
     function setStatus(msg) { statusEl.textContent = msg; }
 
-    // Video.js - optimized for low buffering
+    // Video.js - optimized for fast start
     const player = videojs('videoPlayer', {
       autoplay: true,
       controls: true,
@@ -103,15 +103,14 @@
       html5: {
         vhs: {
           overrideNative: true,
-          enableWorker: true,
+          enableWorker: false,
           lowLatencyMode: false,
-          // Buffer settings
-          bufferLength: 10,
-          bufferAhead: 5,
-          bufferBehind: 2,
-          // Bandwidth settings
-          bandwidthInitial: 8000000,
-          bandwidthCap: 20000000
+          // Less buffering for faster start
+          bufferLength: 3,
+          bufferAhead: 3,
+          bufferBehind: 1,
+          // Lower bandwidth cap
+          bandwidthCap: 8000000
         }
       }
     });
@@ -122,7 +121,7 @@
     });
     player.on('playing', () => setStatus('Playing'));
     player.on('waiting', () => setStatus('Buffering...'));
-    player.on('canplay', () => setStatus('Playing'));
+    player.on('canplay', () => setStatus(''));
 
     // Parse M3U
     function parseM3U(text) {
