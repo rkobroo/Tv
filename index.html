@@ -94,20 +94,35 @@
 
     function setStatus(msg) { statusEl.textContent = msg; }
 
-    // Video.js
+    // Video.js - optimized for low buffering
     const player = videojs('videoPlayer', {
-      autoplay: false, controls: true, preload: 'auto', fluid: true,
-      html5: { vhs: { overrideNative: true } }
+      autoplay: true,
+      controls: true,
+      preload: 'auto',
+      fluid: true,
+      html5: {
+        vhs: {
+          overrideNative: true,
+          enableWorker: true,
+          lowLatencyMode: false,
+          // Buffer settings
+          bufferLength: 10,
+          bufferAhead: 5,
+          bufferBehind: 2,
+          // Bandwidth settings
+          bandwidthInitial: 8000000,
+          bandwidthCap: 20000000
+        }
+      }
     });
 
     player.on('error', function() {
       const err = player.error();
       setStatus(`Error: ${err.message || 'Stream failed'}`);
-      // Try next channel
-      tryNextWorkingStream();
     });
     player.on('playing', () => setStatus('Playing'));
     player.on('waiting', () => setStatus('Buffering...'));
+    player.on('canplay', () => setStatus('Playing'));
 
     // Parse M3U
     function parseM3U(text) {
@@ -172,20 +187,23 @@
       });
     }
 
-    // Test stream
+    // Test stream - fast
     async function testStream(url) {
       if (testedStreams.has(url)) return testedStreams.get(url);
       try {
-        const resp = await fetch(`/proxy?url=${encodeURIComponent(url)}`, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
-        const working = resp.ok && resp.headers.get('content-type')?.includes('mpegurl');
+        const resp = await fetch(`/proxy?url=${encodeURIComponent(url)}`, { 
+          method: 'HEAD', 
+          signal: AbortSignal.timeout(3000) 
+        });
+        const working = resp.ok;
         testedStreams.set(url, working);
         return working;
       } catch { testedStreams.set(url, false); return false; }
     }
 
-    // Test all streams
+    // Test all streams - fast
     async function testAllStreams() {
-      setStatus(`Testing ${allChannels.length} streams...`);
+      setStatus('Testing streams...');
       testBtn.disabled = true;
       let working = 0;
       for (let i = 0; i < allChannels.length; i++) {
@@ -193,39 +211,33 @@
         const isWorking = await testStream(ch.url);
         if (isWorking) working++;
         ch.working = isWorking;
-        renderChannels();
-        setStatus(`Tested ${i + 1}/${allChannels.length} (${working} working)`);
-        if (i % 10 === 0) await new Promise(r => setTimeout(r, 100));
+        if (i % 5 === 0) renderChannels();
+        setStatus(`Testing... ${working} found`);
+        await new Promise(r => setTimeout(r, 50));
       }
       testBtn.disabled = false;
+      renderChannels();
       setStatus(`${working} of ${allChannels.length} streams are working`);
     }
 
-    // Play channel
+    // Play channel - fast
     function playChannel(ch) {
       currentChannel = ch;
       nowPlayingEl.textContent = `Playing: ${ch.name}`;
       setStatus('Loading...');
-      
+
       document.querySelectorAll('.channel-card').forEach(c => c.classList.remove('playing'));
       renderChannels();
 
+      // Reset player for fast switching
+      player.pause();
+      player.reset();
+      
       player.src({ src: `/proxy?url=${encodeURIComponent(ch.url)}`, type: 'application/x-mpegURL' });
-      player.play().catch(() => setStatus('Click play to start'));
+      player.play().catch(() => setStatus('Click play'));
     }
 
-    // Try next working stream
-    function tryNextWorkingStream() {
-      if (!currentChannel) return;
-      const idx = allChannels.findIndex(c => c.url === currentChannel.url);
-      for (let i = idx + 1; i < allChannels.length; i++) {
-        if (allChannels[i].working === true) {
-          playChannel(allChannels[i]);
-          return;
-        }
-      }
-      setStatus('No more working streams found');
-    }
+
 
     // Render
     function renderChannels() {
@@ -287,35 +299,17 @@
 
     // Load
     async function loadChannels() {
-      setStatus('Loading...');
+      setStatus('Loading channels...');
       try {
         const resp = await fetch('https://iptv-org.github.io/iptv/index.m3u');
         if (!resp.ok) throw new Error();
         const text = await resp.text();
         allChannels = sortChannels(filterChannels(parseM3U(text)));
         if (allChannels.length === 0) allChannels = sortChannels(parseM3U(text));
-        setStatus(`${allChannels.length} channels loaded`);
+        setStatus(`${allChannels.length} channels ready - click to play`);
         renderChannels();
-        // Auto-test first 20 streams
-        setTimeout(() => autoTest(), 1000);
       } catch (e) {
-        setStatus('Failed to load - run: node server.js');
-      }
-    }
-
-    // Auto test first few streams
-    async function autoTest() {
-      for (let i = 0; i < Math.min(10, allChannels.length); i++) {
-        const ch = allChannels[i];
-        ch.working = await testStream(ch.url);
-        renderChannels();
-      }
-      // Auto-play first working stream
-      for (const ch of allChannels) {
-        if (ch.working === true) {
-          playChannel(ch);
-          break;
-        }
+        setStatus('Failed - make sure server is running: node server.js');
       }
     }
 
