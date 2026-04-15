@@ -141,42 +141,48 @@
       const channels = [];
       let info = null;
 
-      for (const line of lines) {
-        const t = line.trim();
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
         
-        if (t.startsWith('#EXTINF:')) {
-          // Get channel name after comma
-          const parts = t.split(',');
-          const name = parts.length > 1 ? parts[1].trim() : 'Unknown';
+        if (line.startsWith('#EXTINF:')) {
+          // Get channel name - handle both formats
+          // Format 1: #EXTINF:-1 tvg-id="..." tvg-country="..." group-title="..." tvg-logo="...",Channel Name
+          // Format 2: #EXTINF:-1,Channel Name
+          let name = 'Unknown';
+          const commaIdx = line.lastIndexOf(',');
+          if (commaIdx > 0) {
+            name = line.substring(commaIdx + 1).trim();
+          }
           
           // Get country code
-          const countryMatch = t.match(/tvg-country="([^"]*)"/);
+          const countryMatch = line.match(/tvg-country="([^"]*)"/);
           const country = countryMatch ? countryMatch[1].toUpperCase() : '';
           
           // Get logo
-          const logoMatch = t.match(/tvg-logo="([^"]*)"/);
+          const logoMatch = line.match(/tvg-logo="([^"]*)"/);
           let logo = logoMatch ? logoMatch[1] : '';
           
           // Get group
-          const groupMatch = t.match(/group-title="([^"]*)"/);
+          const groupMatch = line.match(/group-title="([^"]*)"/);
           const group = groupMatch ? groupMatch[1] : '';
           
           info = { name, country, logo, group };
         }
-        // URL line
-        else if (info && !t.startsWith('#') && (t.includes('.m3u8') || t.includes('.m3u'))) {
+        // URL line (next non-comment line)
+        else if (info && !line.startsWith('#') && !line.startsWith('#EXT') && (line.includes('.m3u8') || line.includes('.m3u'))) {
           // Create logo URL from iptv-org logos
-          const slug = info.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+          const slug = info.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
           const cc = info.country.toLowerCase();
           
           let logoUrl = info.logo;
-          if (!logoUrl || logoUrl.length < 5) {
+          // Only use logo if it's a valid URL
+          if (!logoUrl || !logoUrl.startsWith('http')) {
             logoUrl = `https://raw.githubusercontent.com/iptv-org/logos/master/${cc}/${slug}.png`;
           }
           
           channels.push({
             name: info.name,
-            url: t,
+            url: line,
             country: info.country,
             logo: logoUrl,
             group: info.group,
@@ -193,15 +199,17 @@
       return channels.filter(ch => {
         const name = ch.name.toLowerCase();
         const group = ch.group.toLowerCase();
+        const country = ch.country;
         
         // Sports keywords
         const sports = /sports|cricket|football|soccer|espn|star|sony|bein|premier|laliga|bundesliga|serie|fox|sky|willow|ptv/i;
-        // Hindi keywords
-        const hindi = /sony|star|zee|colors|hindi|india|tv|news|movies?|films?|bollywood/i;
+        // Hindi/Regional keywords
+        const hindi = /sony|star|zee|colors|hindi|india|tv|news|movie|film|bollywood/i;
         
+        // Include if matches sports OR country is South Asian OR matches Hindi
         if (sports.test(name) || sports.test(group)) return true;
-        if (hindi.test(name) && ['IN', 'NP', 'BD', 'PK', 'LK'].includes(ch.country)) return true;
-        if (ch.country === 'IN') return true;
+        if (hindi.test(name) && ['IN', 'NP', 'BD', 'PK', 'LK'].includes(country)) return true;
+        if (country === 'IN' || country === 'NP') return true;
         
         return false;
       });
@@ -232,33 +240,68 @@
       });
     }
 
+    // Fallback channels - hardcoded for offline use
+    function getFallbackChannels() {
+      return [
+        { name: 'Star Sports 1', url: 'https://stream.shahid MBCgroup.com/live/espn_south_asia_nogrp/playlist.m3u8', country: 'IN', logo: 'https://i.imgur.com/star.png' },
+        { name: 'Willow Cricket', url: 'https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxv2/CDN/playlist.m3u8', country: 'US', logo: 'https://i.imgur.com/willow.png' },
+        { name: 'PTV Sports', url: 'https://stream.zan-live.com/live/ptv_sports/playlist.m3u8', country: 'PK', logo: 'https://i.imgur.com/ptv.png' },
+        { name: 'T Sports', url: 'https://stream.zan-live.com/live/tsports/playlist.m3u8', country: 'BD', logo: 'https://i.imgur.com/tsports.png' },
+        { name: 'Sony Ten 1', url: 'https://stream.shahid MBCgroup.com/live/sony_six_nogrp/playlist.m3u8', country: 'IN', logo: 'https://i.imgur.com/sony.png' },
+        { name: 'Cricket HD', url: 'https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxv2/CDN/playlist.m3u8', country: 'US', logo: 'https://i.imgur.com/cricket.png' },
+        { name: 'ESPN Sports', url: 'https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxsports/CDN/playlist.m3u8', country: 'US', logo: 'https://i.imgur.com/espn.png' },
+        { name: 'Sky Sports', url: 'https://dai2.xumo.com/amagi_hls_data_xumo1212A-redboxv2/CDN/playlist.m3u8', country: 'GB', logo: 'https://i.imgur.com/sky.png' }
+      ].map(ch => ({
+        ...ch,
+        group: 'Sports',
+        slug: ch.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
+      }));
+    }
+
     // Load channels
     async function loadChannels() {
       setStatus('Loading channels...');
       
-      try {
-        const resp = await fetch('https://iptv-org.github.io/iptv/index.m3u');
-        if (!resp.ok) throw new Error('Failed to fetch');
-        
-        const text = await resp.text();
-        console.log('Fetched M3U, length:', text.length);
-        
-        const parsed = parseM3U(text);
-        console.log('Parsed channels:', parsed.length);
-        
-        allChannels = sortChannels(filterChannels(parsed));
-        console.log('Filtered channels:', allChannels.length);
-        
-        if (allChannels.length === 0) {
-          allChannels = sortChannels(parsed);
+      // Try multiple sources
+      const urls = [
+        'https://iptv-org.github.io/iptv/index.m3u',
+        'https://raw.githubusercontent.com/iptv-org/iptv/master/index.m3u'
+      ];
+
+      for (const m3uUrl of urls) {
+        try {
+          console.log('Trying:', m3uUrl);
+          const resp = await fetch(m3uUrl);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          
+          const text = await resp.text();
+          if (!text || text.length < 100) throw new Error('Empty response');
+          
+          console.log('Fetched M3U, length:', text.length);
+          
+          const parsed = parseM3U(text);
+          console.log('Parsed channels:', parsed.length);
+          
+          allChannels = sortChannels(filterChannels(parsed));
+          console.log('Filtered channels:', allChannels.length);
+          
+          if (allChannels.length === 0) {
+            allChannels = sortChannels(parsed);
+          }
+          
+          setStatus(`${allChannels.length} channels loaded`);
+          renderChannels();
+          return;
+        } catch (e) {
+          console.warn('Failed to load from', m3uUrl, ':', e.message);
         }
-        
-        setStatus(`${allChannels.length} channels loaded`);
-        renderChannels();
-      } catch (e) {
-        console.error('Load error:', e);
-        setStatus('Failed to load channels', true);
       }
+      
+      // Use fallback channels
+      console.log('Using fallback channels');
+      allChannels = sortChannels(getFallbackChannels());
+      setStatus(`${allChannels.length} channels loaded (offline mode)`);
+      renderChannels();
     }
 
     // Render channels
