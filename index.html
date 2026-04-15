@@ -195,10 +195,10 @@
       });
     }
 
-    // CORS proxy for video streams
+    // CORS proxy - try multiple
     function getStreamUrl(url) {
-      // Use corsproxy.io - wraps the URL
-      return `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      // Use allorigins - better for m3u8
+      return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
     }
 
     // Play channel
