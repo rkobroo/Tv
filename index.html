@@ -125,12 +125,20 @@
           const group = (t.match(/group-title="([^"]*)"/) || [])[1] || '';
           info = { name, country: country.toUpperCase(), logo, group };
         } else if (info && !t.startsWith('#') && (t.includes('.m3u'))) {
-          const slug = info.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
-          let logoUrl = info.logo;
-          if (!logoUrl || !logoUrl.startsWith('http')) {
-            logoUrl = `https://raw.githubusercontent.com/iptv-org/logos/master/${info.country.toLowerCase()}/${slug}.png`;
+          const slug = info.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+          const cc = info.country.toLowerCase();
+          
+          // Try multiple logo sources
+          const logos = [];
+          if (info.logo && info.logo.startsWith('http')) {
+            logos.push(info.logo);
           }
-          channels.push({ ...info, url: t, slug });
+          // Try iptv-org logos repo
+          logos.push(`https://raw.githubusercontent.com/iptv-org/logos/master/${cc}/${slug}.png`);
+          logos.push(`https://raw.githubusercontent.com/iptv-org/logos/master/${slug}.png`);
+          logos.push(`https://raw.githubusercontent.com/iptv-org/logos/master/${cc}/${slug}.svg`);
+          
+          channels.push({ ...info, url: t, slug, logos });
           info = null;
         }
       }
@@ -237,13 +245,41 @@
         if (ch.working === true) statusBadge = '<span class="channel-status status-working">LIVE</span>';
         else if (ch.working === false) statusBadge = '<span class="channel-status status-dead">OFFLINE</span>';
         
-        div.innerHTML = `
-          <div class="logo">${flags[ch.country] || ch.name.charAt(0)}</div>
-          <div class="channel-info">
-            <div class="channel-name">${ch.name}${statusBadge}</div>
-            <div class="channel-country">${countries[ch.country] || ch.country}</div>
-          </div>
-        `;
+        // Create logo with fallback
+        const logoDiv = document.createElement('div');
+        logoDiv.className = 'logo';
+        logoDiv.style.background = '#1a1a2e';
+        
+        if (ch.logos && ch.logos.length > 0) {
+          const img = document.createElement('img');
+          img.src = ch.logos[0];
+          img.style.width = '100%';
+          img.style.height = '100%';
+          img.style.objectFit = 'contain';
+          img.style.borderRadius = '6px';
+          
+          let logoIdx = 0;
+          img.onerror = () => {
+            logoIdx++;
+            if (logoIdx < ch.logos.length) {
+              img.src = ch.logos[logoIdx];
+            } else {
+              logoDiv.textContent = flags[ch.country] || ch.name.charAt(0);
+              logoDiv.style.fontSize = '18px';
+              logoDiv.style.color = '#666';
+            }
+          };
+          logoDiv.appendChild(img);
+        } else {
+          logoDiv.textContent = flags[ch.country] || ch.name.charAt(0);
+        }
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'channel-info';
+        infoDiv.innerHTML = `<div class="channel-name">${ch.name}${statusBadge}</div><div class="channel-country">${countries[ch.country] || ch.country}</div>`;
+        
+        div.appendChild(logoDiv);
+        div.appendChild(infoDiv);
         div.onclick = () => playChannel(ch);
         channelListEl.appendChild(div);
       });
