@@ -77,24 +77,10 @@
 
   <script src="https://unpkg.com/video.js@8/dist/video.min.js"></script>
   <script>
-    // Public CORS proxies - faster than local
-    const PROXIES = [
-      (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-      (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-    ];
-    let proxyIdx = 0;
-    
+    // Reliable CORS proxy
     function getProxyUrl(url) {
-      // Some CDNs work directly
-      if (url.includes('akamaized') || url.includes('cloudfront') || url.includes('.m3u8')) {
-        return PROXIES[proxyIdx](url);
-      }
-      return PROXIES[proxyIdx](url);
-    }
-    
-    function nextProxy() {
-      proxyIdx = (proxyIdx + 1) % PROXIES.length;
-      console.log('Using proxy:', proxyIdx === 0 ? 'corsproxy.io' : 'allorigins');
+      // Use streamex - known to work with m3u8 streams
+      return `https://cors.streamex.to/${url}`;
     }
 
     const statusEl = document.getElementById('status');
@@ -203,13 +189,13 @@
       });
     }
 
-    // Test stream - fast
+    // Test stream
     async function testStream(url) {
       if (testedStreams.has(url)) return testedStreams.get(url);
       try {
-        const resp = await fetch(`/proxy?url=${encodeURIComponent(url)}`, { 
+        const resp = await fetch(getProxyUrl(url), { 
           method: 'HEAD', 
-          signal: AbortSignal.timeout(3000) 
+          signal: AbortSignal.timeout(5000) 
         });
         const working = resp.ok;
         testedStreams.set(url, working);
@@ -217,7 +203,7 @@
       } catch { testedStreams.set(url, false); return false; }
     }
 
-    // Test all streams - fast
+    // Test all streams
     async function testAllStreams() {
       setStatus('Testing streams...');
       testBtn.disabled = true;
@@ -228,15 +214,15 @@
         if (isWorking) working++;
         ch.working = isWorking;
         if (i % 5 === 0) renderChannels();
-        setStatus(`Testing... ${working} found`);
-        await new Promise(r => setTimeout(r, 50));
+        setStatus(`Testing... ${working} live`);
+        await new Promise(r => setTimeout(r, 100));
       }
       testBtn.disabled = false;
       renderChannels();
-      setStatus(`${working} of ${allChannels.length} streams are working`);
+      setStatus(`${working} of ${allChannels.length} streams working`);
     }
 
-    // Play channel - fast
+    // Play channel
     function playChannel(ch) {
       currentChannel = ch;
       nowPlayingEl.textContent = `Playing: ${ch.name}`;
@@ -245,12 +231,9 @@
       document.querySelectorAll('.channel-card').forEach(c => c.classList.remove('playing'));
       renderChannels();
 
-      // Reset player for fast switching
-      player.pause();
       player.reset();
-      
-      player.src({ src: `/proxy?url=${encodeURIComponent(ch.url)}`, type: 'application/x-mpegURL' });
-      player.play().catch(() => setStatus('Click play'));
+      player.src({ src: getProxyUrl(ch.url), type: 'application/x-mpegURL' });
+      player.play().catch(() => setStatus('Click play button'));
     }
 
 
