@@ -1,384 +1,415 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Live Sports TV</title>
-    <link href="https://unpkg.com/video.js@8/dist/video-js.min.css" rel="stylesheet" />
-    <style>
-      :root { color-scheme: light dark; }
-      body {
-        font-family: system-ui, -apple-system, sans-serif;
-        margin: 0; padding: 0; line-height: 1.5;
-        background: #0b0f14; color: #e8edf2;
-      }
-      .muted { opacity: .85; }
-      .danger { color: #ff7b7b; }
-      .success { color: #5be49b; }
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Sports TV</title>
+  <link href="https://unpkg.com/video.js@8/dist/video-js.min.css" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0; padding: 0;
+      background: #0a0a0f; color: #fff;
+    }
+    header {
+      padding: 12px 16px;
+      background: #12121a;
+      border-bottom: 1px solid #222;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    header h1 { margin: 0; font-size: 18px; }
+    header button {
+      background: #1a1a2e; color: #fff; border: 1px solid #333;
+      padding: 8px 16px; border-radius: 6px; cursor: pointer;
+    }
+    header button:hover { background: #252540; }
+    #status { color: #888; font-size: 13px; }
 
-      header { padding: 12px 16px; background: #101722; border-bottom: 1px solid #1c2736; }
-      header .topbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-      header h1 { margin: 0; font-size: 16px; font-weight: 600; }
+    .container { display: flex; height: calc(100vh - 60px); }
+    .sidebar { width: 320px; background: #0f0f18; border-right: 1px solid #222; overflow-y: auto; }
+    .sidebar-header { padding: 12px; border-bottom: 1px solid #222; }
+    .search-input {
+      width: 100%; background: #1a1a2e; color: #fff; border: 1px solid #333;
+      padding: 10px; border-radius: 6px; font-size: 14px;
+    }
+    .chips { display: flex; gap: 6px; padding: 10px 12px; flex-wrap: wrap; }
+    .chip {
+      background: #1a1a2e; border: 1px solid #333; padding: 4px 12px;
+      border-radius: 20px; font-size: 12px; cursor: pointer;
+    }
+    .chip.active { background: #3a3a60; border-color: #5a5a80; }
+    .channel-list { padding: 8px; }
+    .channel-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px; margin-bottom: 6px; border-radius: 8px;
+      background: #1a1a2e; cursor: pointer; transition: background 0.2s;
+    }
+    .channel-card:hover { background: #252540; }
+    .channel-card.playing { background: #1a3020; border: 1px solid #2a5a30; }
+    .channel-logo {
+      width: 48px; height: 48px; border-radius: 8px;
+      background: #000; object-fit: contain;
+    }
+    .channel-info { flex: 1; min-width: 0; }
+    .channel-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .channel-country { font-size: 12px; color: #888; }
+    .main { flex: 1; display: flex; flex-direction: column; padding: 16px; background: #0a0a0f; }
+    #nowPlaying { margin-bottom: 10px; font-size: 14px; color: #aaa; }
+    .video-container { flex: 1; background: #000; border-radius: 12px; overflow: hidden; min-height: 400px; }
+    .video-js { width: 100%; height: 100%; }
+    .error-msg { color: #ff6b6b; padding: 20px; text-align: center; }
+    footer { padding: 10px 16px; font-size: 11px; color: #555; border-top: 1px solid #222; }
+    footer a { color: #7ecbff; }
+    .loading { display: inline-block; width: 14px; height: 14px; border: 2px solid #333; border-top: 2px solid #7ecbff; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Live Sports TV</h1>
+    <button id="refreshBtn">Refresh Channels</button>
+    <span id="status">Loading...</span>
+  </header>
 
-      .toolbar { display: flex; gap: 8px; }
-      .toolbar button {
-        background: #0f1722; color: #e8edf2; border: 1px solid #233143; border-radius: 8px; padding: 8px 12px; cursor: pointer;
-      }
-      .toolbar button:hover { background: #1a2a42; }
-
-      .layout { display: grid; grid-template-columns: 300px 1fr; min-height: calc(100vh - 56px); }
-      aside { border-right: 1px solid #1c2736; background: #0d131d; overflow-y: auto; }
-      main { padding: 14px; display: flex; flex-direction: column; }
-
-      .panel { padding: 12px; }
-      .search-row { display: flex; gap: 8px; }
-      .search-row input { 
-        flex: 1; background: #0f1722; color: #e8edf2; border: 1px solid #233143; 
-        border-radius: 8px; padding: 8px 10px; font-size: 13px; 
-      }
-      .search-row button { background: #0f1722; color: #e8edf2; border: 1px solid #233143; border-radius: 8px; padding: 8px 10px; cursor: pointer; }
-
-      .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-      .chip { background: #0f1722; border: 1px solid #233143; padding: 4px 10px; border-radius: 999px; font-size: 11px; cursor: pointer; }
-      .chip.active { background: #1a2a42; border-color: #365278; }
-
-      .channels { margin-top: 10px; max-height: calc(100vh - 200px); overflow-y: auto; }
-      .channel-card { 
-        display: flex; align-items: center; gap: 10px; padding: 10px; 
-        border-radius: 8px; background: #0f1722; border: 1px solid #233143; margin-bottom: 6px; cursor: pointer; 
-      }
-      .channel-card:hover { background: #132033; }
-      .channel-card.playing { border-color: #5be49b; background: #0f1a12; }
-      .channel-logo { width: 40px; height: 40px; border-radius: 6px; object-fit: contain; background: #000; flex-shrink: 0; }
-      .channel-title { font-size: 13px; font-weight: 600; }
-      .channel-meta { font-size: 11px; opacity: .7; }
-
-      .player-wrap { flex: 1; display: flex; flex-direction: column; min-height: 400px; }
-      .video-js { width: 100%; flex: 1; border-radius: 10px; background: #000; min-height: 300px; }
-      .now-playing { font-size: 13px; margin-bottom: 8px; }
-
-      .loading { display: inline-block; width: 14px; height: 14px; border: 2px solid #233143; border-top: 2px solid #7ecbff; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 6px; }
-      @keyframes spin { to { transform: rotate(360deg); } }
-
-      footer { padding: 10px 16px; font-size: 11px; border-top: 1px solid #1c2736; }
-      footer a { color: #7ecbff; }
-    </style>
-  </head>
-  <body>
-    <header>
-      <div class="topbar">
-        <h1>Live Sports TV</h1>
-        <div class="toolbar">
-          <button id="refreshBtn">Refresh</button>
-        </div>
-        <span id="status" class="muted"></span>
+  <div class="container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <input type="text" class="search-input" id="searchInput" placeholder="Search channels..." />
       </div>
-    </header>
+      <div class="chips">
+        <div class="chip active" data-cat="all">All</div>
+        <div class="chip" data-cat="cricket">Cricket</div>
+        <div class="chip" data-cat="football">Football</div>
+        <div class="chip" data-cat="hindi">Hindi</div>
+      </div>
+      <div class="channel-list" id="channelList"></div>
+    </aside>
 
-    <div class="layout">
-      <aside>
-        <div class="panel">
-          <div class="search-row">
-            <input id="search" type="text" placeholder="Search..." />
-            <button id="clearBtn">✕</button>
-          </div>
-          <div class="chips">
-            <div class="chip active" data-cat="all">All</div>
-            <div class="chip" data-cat="cricket">Cricket</div>
-            <div class="chip" data-cat="football">Football</div>
-          </div>
-          <div id="channelList" class="channels"></div>
-        </div>
-      </aside>
+    <main class="main">
+      <div id="nowPlaying">Select a channel to watch</div>
+      <div class="video-container">
+        <video id="videoPlayer" class="video-js vjs-default-skin" controls preload="auto" playsinline></video>
+      </div>
+    </main>
+  </div>
 
-      <main>
-        <div class="player-wrap">
-          <div class="now-playing" id="nowPlaying">Select a channel</div>
-          <video id="videoPlayer" class="video-js" controls preload="auto" playsinline></video>
-        </div>
-      </main>
-    </div>
+  <footer>
+    Source: <a href="https://github.com/iptv-org/iptv" target="_blank">iptv-org/iptv</a> | 
+    <a href="https://github.com/iptv-org/database" target="_blank">iptv-org/database</a>
+  </footer>
 
-    <footer>
-      Source: <a href="https://github.com/iptv-org/iptv" target="_blank">iptv-org/iptv</a> | 
-      <a href="https://github.com/iptv-org/database" target="_blank">iptv-org/database</a>
-    </footer>
+  <script src="https://unpkg.com/video.js@8/dist/video.min.js"></script>
+  <script>
+    // Elements
+    const statusEl = document.getElementById('status');
+    const searchInput = document.getElementById('searchInput');
+    const channelListEl = document.getElementById('channelList');
+    const nowPlayingEl = document.getElementById('nowPlaying');
+    const refreshBtn = document.getElementById('refreshBtn');
 
-    <script src="https://unpkg.com/video.js@8/dist/video.min.js"></script>
-    <script>
-      const statusEl = document.getElementById('status');
-      const searchEl = document.getElementById('search');
-      const clearBtn = document.getElementById('clearBtn');
-      const refreshBtn = document.getElementById('refreshBtn');
-      const channelListEl = document.getElementById('channelList');
-      const nowPlayingEl = document.getElementById('nowPlaying');
+    // State
+    let allChannels = [];
+    let currentChannel = null;
+    let activeCategory = 'all';
+    let playerReady = false;
 
-      let allChannels = [];
-      let currentChannel = null;
-      let activeCat = 'all';
+    // Country data
+    const countries = {
+      'NP': 'Nepal', 'IN': 'India', 'BD': 'Bangladesh', 'PK': 'Pakistan',
+      'LK': 'Sri Lanka', 'BT': 'Bhutan', 'US': 'USA', 'GB': 'UK',
+      'AU': 'Australia', 'CA': 'Canada', 'TH': 'Thailand', 'MY': 'Malaysia',
+      'SG': 'Singapore', 'ID': 'Indonesia', 'PH': 'Philippines', 'VN': 'Vietnam'
+    };
 
-      // Country names
-      const countries = {
-        'NP': 'Nepal', 'IN': 'India', 'BD': 'Bangladesh', 'PK': 'Pakistan',
-        'LK': 'Sri Lanka', 'BT': 'Bhutan', 'US': 'USA', 'GB': 'UK',
-        'AU': 'Australia', 'CA': 'Canada', 'TH': 'Thailand', 'MY': 'Malaysia'
-      };
+    const flags = {
+      'NP': '🇳🇵', 'IN': '🇮🇳', 'BD': '🇧🇩', 'PK': '🇵🇰', 'LK': '🇱🇰',
+      'BT': '🇧🇹', 'US': '🇺🇸', 'GB': '🇬🇧', 'AU': '🇦🇺', 'CA': '🇨🇦',
+      'TH': '🇹🇭', 'MY': '🇲🇾', 'SG': '🇸🇬', 'ID': '🇮🇩', 'PH': '🇵🇭'
+    };
 
-      const flags = {
-        'NP': '🇳🇵', 'IN': '🇮🇳', 'BD': '🇧🇩', 'PK': '🇵🇰', 'LK': '🇱🇰',
-        'BT': '🇧🇹', 'US': '🇺🇸', 'GB': '🇬🇧', 'AU': '🇦🇺', 'CA': '🇨🇦'
-      };
-
-      function setStatus(msg) {
-        statusEl.textContent = msg;
+    function setStatus(msg, isError = false) {
+      if (isError) {
+        statusEl.innerHTML = `<span style="color:#ff6b6b">${msg}</span>`;
+      } else {
+        statusEl.innerHTML = msg.startsWith('Loading') ? 
+          `<span class="loading"></span>${msg}` : msg;
       }
+    }
 
-      // Video.js setup
-      const player = videojs('videoPlayer', {
-        autoplay: true,
-        controls: true,
-        preload: 'auto',
-        fluid: true,
-        html5: {
-          vhs: {
-            overrideNative: true,
-            enableWorker: true
-          }
+    // Video.js player
+    const player = videojs('videoPlayer', {
+      autoplay: false,
+      controls: true,
+      preload: 'auto',
+      fluid: true,
+      html5: {
+        vhs: {
+          overrideNative: true,
+          enableWorker: true,
+          lowLatencyMode: true
         }
+      }
+    });
+
+    player.ready(() => { playerReady = true; });
+
+    player.on('error', function() {
+      const err = player.error();
+      console.error('Player error:', err);
+      setStatus(`Error: ${err.message || 'Playback failed'}`, true);
+    });
+
+    player.on('playing', () => setStatus('Playing'));
+    player.on('waiting', () => setStatus('Buffering...'));
+    player.on('canplay', () => setStatus('Ready'));
+
+    // Parse M3U - handle iptv-org format
+    function parseM3U(text) {
+      const lines = text.split(/\r?\n/);
+      const channels = [];
+      let info = null;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        if (line.startsWith('#EXTINF:')) {
+          // Extract channel name (after comma)
+          const nameMatch = line.match(/,#\s*(.+)/);
+          const name = nameMatch ? nameMatch[1].trim() : 'Unknown Channel';
+          
+          // Extract attributes
+          const tvgId = (line.match(/tvg-id="([^"]*)"/) || [])[1] || '';
+          const country = ((line.match(/tvg-country="([^"]*)"/) || [])[1] || '').toUpperCase();
+          const logo = (line.match(/tvg-logo="([^"]*)"/) || [])[1] || '';
+          const group = (line.match(/group-title="([^"]*)"/) || [])[1] || '';
+          
+          info = { name, tvgId, country, logo, group };
+        }
+        // URL line follows EXTINF
+        else if (info && !line.startsWith('#') && (line.includes('.m3u8') || line.includes('.m3u'))) {
+          // Generate logo URL
+          const slug = info.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+          const cc = info.country.toLowerCase();
+          
+          // Use iptv-org logos repo for logo
+          let logoUrl = info.logo;
+          if (!logoUrl || logoUrl.length < 10) {
+            logoUrl = `https://raw.githubusercontent.com/iptv-org/logos/master/${cc}/${slug}.png`;
+          }
+          
+          channels.push({
+            name: info.name,
+            url: line,
+            country: info.country,
+            logo: logoUrl,
+            group: info.group,
+            slug: slug,
+            cc: cc
+          });
+          info = null;
+        }
+      }
+      return channels;
+    }
+
+    // Filter channels - broader sports/Hindi filter
+    function filterChannels(channels) {
+      return channels.filter(ch => {
+        const name = ch.name.toLowerCase();
+        const group = ch.group.toLowerCase();
+        const country = ch.country;
+        
+        // Sports keywords
+        const sportsKw = /sports|cricket|football|soccer|espn|star\s*sports|sony\s*(six|ten|liv|sports)|bein|premier\s*league|laliga|bundesliga|serie\s*a|fox\s*sports|sky\s*sports|willow|ptv\s*sports|t\s*sports|cricket/i;
+        
+        // Hindi/Indian channels
+        const hindiKw = /sony|star|zee|colors|life\s*ok|aapka|diamond|utv|dd|sahara|ndtv|abp|aaj\s*tak|india|tv18|republic|news| movie|films?|cinema|bollywood|hindi/i;
+        
+        // Include if sports or Hindi related
+        if (sportsKw.test(name) || sportsKw.test(group)) return true;
+        if (hindiKw.test(name) && ['IN', 'NP', 'BD', 'PK', 'LK'].includes(country)) return true;
+        if (country === 'IN') return true; // All Indian channels
+        
+        return false;
       });
+    }
 
-      player.on('error', () => {
-        const err = player.error();
-        setStatus('Stream error - trying another...');
-        setTimeout(() => playNextChannel(), 2000);
+    // Sort channels - Nepal/India priority
+    function sortChannels(channels) {
+      const namePriority = ['sony liv', 'sony ten', 'star sports', 'willow', 'ptv sports', 't sports', 'espn', 'cricket', 'football'];
+      const countryOrder = ['NP', 'IN', 'BD', 'PK', 'LK', 'BT', 'US', 'GB'];
+      
+      return channels.sort((a, b) => {
+        const an = a.name.toLowerCase();
+        const bn = b.name.toLowerCase();
+        
+        // Sort by channel name priority
+        let ia = namePriority.findIndex(p => an.includes(p));
+        let ib = namePriority.findIndex(p => bn.includes(p));
+        if (ia !== ib) {
+          if (ia === -1) ia = 999;
+          if (ib === -1) ib = 999;
+          return ia - ib;
+        }
+        
+        // Then by country
+        const oa = countryOrder.indexOf(a.country);
+        const ob = countryOrder.indexOf(b.country);
+        if (oa !== ob) {
+          if (oa === -1) oa = 999;
+          if (ob === -1) ob = 999;
+          return oa - ob;
+        }
+        
+        return a.name.localeCompare(b.name);
       });
+    }
 
-      player.on('playing', () => setStatus(''));
-      player.on('waiting', () => setStatus('Buffering...'));
-      player.on('canplay', () => setStatus(''));
+    // Load channels from iptv-org
+    async function loadChannels() {
+      setStatus('Loading channels...');
+      
+      const urls = [
+        'https://iptv-org.github.io/iptv/index.m3u'
+      ];
 
-      // Parse M3U
-      function parseM3U(text) {
-        const lines = text.split(/\r?\n/);
-        const channels = [];
-        let info = null;
-
-        for (const line of lines) {
-          const t = line.trim();
-          if (t.startsWith('#EXTINF:')) {
-            const name = (t.match(/,#\s*(.+)/) || [])[1] || 'Unknown';
-            const rawLogo = (t.match(/tvg-logo="([^"]*)"/) || [])[1] || '';
-            info = {
-              name,
-              id: (t.match(/tvg-id="([^"]*)"/) || [])[1] || '',
-              country: ((t.match(/tvg-country="([^"]*)"/) || [])[1] || '').toUpperCase(),
-              logo: rawLogo,
-              group: (t.match(/group-title="([^"]*)"/) || [])[1] || ''
-            };
-          } else if (info && !t.startsWith('#') && (t.includes('.m3u8') || t.includes('.m3u'))) {
-            // Generate logo URL from iptv-org logos repo
-            const slug = info.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-            const cc = info.country.toLowerCase();
-            let logoUrl = info.logo;
-            
-            // If no logo or external logo fails, use iptv-org logos
-            if (!logoUrl || logoUrl.includes('imgur') || logoUrl.includes('jmvstream') || logoUrl.includes('i.ibb')) {
-              logoUrl = `https://raw.githubusercontent.com/iptv-org/logos/master/${cc}/${slug}.png`;
-            }
-            
-            channels.push({ 
-              ...info, 
-              url: t,
-              logo: logoUrl,
-              logoFallback: `https://raw.githubusercontent.com/iptv-org/logos/master/${slug}.png`
-            });
-            info = null;
-          }
-        }
-        return channels;
-      }
-
-      // Filter sports channels
-      function filterSports(channels) {
-        const kw = /sports|cricket|football|soccer|espn|star\s*sports|sony\s*(six|ten|liv)|bein|premier|laliga|bundesliga|serie|fox\s*sports|sky\s*sports|willow|ptv|t\s*sports/i;
-        return channels.filter(ch => {
-          const n = ch.name.toLowerCase();
-          const g = ch.group.toLowerCase();
-          if (kw.test(n) || kw.test(g)) return true;
-          if (['NP', 'IN', 'BD', 'PK', 'LK'].includes(ch.country)) return true;
-          return false;
-        });
-      }
-
-      // Get proxy URL - use server proxy
-      function getStreamUrl(url) {
-        return `/api/hls?url=${encodeURIComponent(url)}`;
-      }
-
-      // Load channels
-      async function loadChannels() {
-        setStatus('Loading channels...');
-        
-        const urls = [
-          'https://iptv-org.github.io/iptv/index.m3u',
-          'https://raw.githubusercontent.com/iptv-org/iptv/master/index.m3u'
-        ];
-
-        for (const url of urls) {
-          try {
-            const resp = await fetch(url);
-            if (resp.ok) {
-              const text = await resp.text();
-              let channels = parseM3U(text);
-              channels = filterSports(channels);
-              if (channels.length === 0) channels = parseM3U(text);
-              
-              allChannels = channels;
-              setStatus(`${channels.length} channels loaded`);
-              renderList();
-              return;
-            }
-          } catch (e) {
-            console.warn('Failed:', url, e);
-          }
-        }
-        
-        setStatus('Failed to load - check internet');
-      }
-
-      // Filter and sort
-      function getFilteredChannels() {
-        let ch = allChannels;
-        
-        // Category
-        if (activeCat === 'cricket') {
-          ch = ch.filter(c => /cricket|willow|star\s*sports|sony\s*(ten|six|liv)/i.test(c.name));
-        } else if (activeCat === 'football') {
-          ch = ch.filter(c => /football|soccer|premier|laliga|bundesliga|serie/i.test(c.name));
-        }
-        
-        // Search
-        const q = searchEl.value.trim().toLowerCase();
-        if (q) {
-          ch = ch.filter(c => c.name.toLowerCase().includes(q) || c.country.toLowerCase().includes(q));
-        }
-        
-        // Sort by priority
-        const priority = ['sony', 'star sports', 'willow', 'ptv', 't sports', 'espn'];
-        ch.sort((a, b) => {
-          const ia = priority.findIndex(p => a.name.toLowerCase().includes(p));
-          const ib = priority.findIndex(p => b.name.toLowerCase().includes(p));
-          if (ia !== -1 || ib !== -1) {
-            if (ia === -1) return 1;
-            if (ib === -1) return -1;
-            return ia - ib;
-          }
-          // Country priority
-          const order = ['NP', 'IN', 'BD', 'PK', 'LK'];
-          const oa = order.indexOf(a.country);
-          const ob = order.indexOf(b.country);
-          if (oa !== ob) {
-            if (oa === -1) return 1;
-            if (ob === -1) return -1;
-            return oa - ob;
-          }
-          return a.name.localeCompare(b.name);
-        });
-        
-        return ch;
-      }
-
-      // Render list
-      function renderList() {
-        const channels = getFilteredChannels();
-        channelListEl.innerHTML = '';
-        
-        if (channels.length === 0) {
-          channelListEl.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">No channels found</div>';
-          return;
-        }
-        
-        channels.forEach(ch => {
-          const div = document.createElement('div');
-          div.className = 'channel-card' + (currentChannel?.url === ch.url ? ' playing' : '');
-          
-          // Create image with fallback handling
-          const img = document.createElement('img');
-          img.className = 'channel-logo';
-          img.alt = '';
-          img.src = ch.logo;
-          img.onerror = function() {
-            // Try fallback logo
-            if (this.src !== ch.logoFallback) {
-              this.src = ch.logoFallback;
-            } else {
-              this.style.display = 'none';
-            }
-          };
-          
-          const titleDiv = document.createElement('div');
-          titleDiv.innerHTML = `<div class="channel-title">${flags[ch.country] || ''} ${ch.name}</div>`;
-          
-          const metaDiv = document.createElement('div');
-          metaDiv.innerHTML = `<div class="channel-meta">${countries[ch.country] || ch.country || ''}</div>`;
-          
-          const contentDiv = document.createElement('div');
-          contentDiv.appendChild(titleDiv);
-          contentDiv.appendChild(metaDiv);
-          
-          div.appendChild(img);
-          div.appendChild(contentDiv);
-          div.onclick = () => playChannel(ch);
-          channelListEl.appendChild(div);
-        });
-      }
-
-      // Play channel
-      function playChannel(ch) {
-        currentChannel = ch;
-        nowPlayingEl.textContent = `Playing: ${ch.name}`;
-        setStatus('Loading stream...');
-        
-        document.querySelectorAll('.channel-card').forEach(c => c.classList.remove('playing'));
-        renderList();
-        
+      for (const url of urls) {
         try {
-          player.reset();
-          player.src({ src: getStreamUrl(ch.url), type: 'application/x-mpegURL' });
-          player.play().catch(() => setStatus('Click play to start'));
-        } catch (e) {
-          setStatus('Error loading stream');
-        }
-      }
-
-      // Try next channel if error
-      let currentIndex = 0;
-      function playNextChannel() {
-        const channels = getFilteredChannels();
-        const startIdx = channels.findIndex(c => c.url === currentChannel?.url);
-        for (let i = startIdx + 1; i < channels.length; i++) {
-          playChannel(channels[i]);
+          console.log('Fetching:', url);
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          
+          const text = await resp.text();
+          console.log('Got', text.length, 'bytes');
+          
+          const parsed = parseM3U(text);
+          console.log('Parsed', parsed.length, 'channels');
+          
+          allChannels = sortChannels(filterChannels(parsed));
+          console.log('Filtered to', allChannels.length, 'sports/Hindi channels');
+          
+          if (allChannels.length > 0) {
+            setStatus(`${allChannels.length} channels loaded`);
+            renderChannels();
+          } else {
+            // If filter returns nothing, show all
+            allChannels = sortChannels(parsed);
+            setStatus(`${allChannels.length} channels loaded`);
+            renderChannels();
+          }
           return;
+        } catch (e) {
+          console.error('Load error:', e);
         }
-        setStatus('No working streams found');
+      }
+      
+      setStatus('Failed to load channels', true);
+    }
+
+    // Render channel list
+    function renderChannels() {
+      const search = searchInput.value.toLowerCase();
+      let filtered = allChannels;
+
+      // Category filter
+      if (activeCategory === 'cricket') {
+        filtered = filtered.filter(c => /cricket|willow|star\s*sports|sony\s*(ten|six|liv)/i.test(c.name));
+      } else if (activeCategory === 'football') {
+        filtered = filtered.filter(c => /football|soccer|premier|laliga|bundesliga|serie/i.test(c.name));
+      } else if (activeCategory === 'hindi') {
+        filtered = filtered.filter(c => c.country === 'IN' || /sony|star|zee|colors|hindi|india/i.test(c.name));
       }
 
-      // Events
-      refreshBtn.onclick = () => loadChannels();
-      clearBtn.onclick = () => { searchEl.value = ''; renderList(); };
-      searchEl.oninput = () => renderList();
+      // Search filter
+      if (search) {
+        filtered = filtered.filter(c => 
+          c.name.toLowerCase().includes(search) ||
+          c.country.toLowerCase().includes(search) ||
+          c.group.toLowerCase().includes(search)
+        );
+      }
 
-      document.querySelectorAll('.chip').forEach(chip => {
-        chip.onclick = () => {
-          document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-          chip.classList.add('active');
-          activeCat = chip.dataset.cat;
-          renderList();
-        };
+      channelListEl.innerHTML = '';
+      
+      if (filtered.length === 0) {
+        channelListEl.innerHTML = '<div class="error-msg">No channels found</div>';
+        return;
+      }
+
+      filtered.forEach(ch => {
+        const div = document.createElement('div');
+        div.className = 'channel-card' + (currentChannel?.url === ch.url ? ' playing' : '');
+        
+        const flag = flags[ch.country] || '';
+        const countryName = countries[ch.country] || ch.country || '';
+        
+        div.innerHTML = `
+          <img class="channel-logo" src="${ch.logo}" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22><rect fill=%22%23333%22 width=%2248%22 height=%2248%22/><text x=%2224%22 y=%2228%22 text-anchor=%22middle%22 fill=%22%23666%22 font-size=%2212%22>${ch.name.charAt(0)}</text></svg>'">
+          <div class="channel-info">
+            <div class="channel-name">${flag} ${ch.name}</div>
+            <div class="channel-country">${countryName}</div>
+          </div>
+        `;
+        
+        div.onclick = () => playChannel(ch);
+        channelListEl.appendChild(div);
       });
+    }
 
-      // Start
-      loadChannels();
-    </script>
-  </body>
+    // Play channel
+    function playChannel(ch) {
+      if (!playerReady) {
+        setStatus('Player not ready, wait...', true);
+        return;
+      }
+
+      currentChannel = ch;
+      nowPlayingEl.textContent = `Playing: ${ch.name}`;
+      setStatus('Loading stream...');
+
+      // Update UI
+      document.querySelectorAll('.channel-card').forEach(c => c.classList.remove('playing'));
+      renderChannels();
+
+      // Use proxy if available, otherwise direct
+      const streamUrl = ch.url;
+
+      try {
+        player.src({
+          src: streamUrl,
+          type: 'application/x-mpegURL'
+        });
+        
+        player.play().catch(e => {
+          console.warn('Play error:', e);
+          setStatus('Click play to start');
+        });
+      } catch (e) {
+        console.error('Source error:', e);
+        setStatus('Error loading stream', true);
+      }
+    }
+
+    // Events
+    refreshBtn.onclick = loadChannels;
+    
+    searchInput.oninput = () => renderChannels();
+    
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.onclick = () => {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        activeCategory = chip.dataset.cat;
+        renderChannels();
+      };
+    });
+
+    // Start
+    loadChannels();
+  </script>
+</body>
 </html>
