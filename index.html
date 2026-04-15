@@ -195,9 +195,9 @@
       });
     }
 
-    // CORS proxy - use Vercel API for better streaming
+    // Use direct URL (no proxy for playlist, let browser handle it)
     function getStreamUrl(url) {
-      return `/api/proxy?url=${encodeURIComponent(url)}`;
+      return url;
     }
 
     // Play channel
