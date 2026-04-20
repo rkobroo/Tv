@@ -323,6 +323,13 @@
       const url = playlistUrlInput.value.trim();
       if (!url) return;
       
+      // YonoTV - direct iframe, no playlist to fetch
+      if (url.includes('yonotv.pages.dev')) {
+        allChannels = [{ name: 'YonoTV Live', url: url, group: 'Live' }];
+        renderChannels();
+        return;
+      }
+      
       channelListEl.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading channels...</div>';
       
       try {
