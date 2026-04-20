@@ -50,6 +50,12 @@
     <h1>IPTV Player</h1>
     <div class="input-row">
       <input type="text" class="url-input" id="playlistUrl" placeholder="Paste M3U/M3U8 playlist URL..." value="https://opentivu.netlify.app/api/it" />
+      <select id="presetSelect" onchange="loadPreset()" style="padding:10px;background:#333;color:#fff;border:1px solid #444;border-radius:6px;margin-right:5px;">
+        <option value="">-- Select Source --</option>
+        <option value="https://opentivu.netlify.app/api/it">Italian TV (OpenTivu)</option>
+        <option value="https://iptv-org.github.io/iptv/index.m3u">World IPTV (iptv-org)</option>
+        <option value="https://raw.githubusercontent.com/livetvapi2/ipl-free-2025/main/IPL.m3u">Cricket IPL 2025</option>
+      </select>
       <button class="load-btn" onclick="loadPlaylist()">Load</button>
     </div>
   </header>
@@ -92,6 +98,16 @@
 
     const flags = { 'NP': '🇳🇵', 'IN': '🇮🇳', 'BD': '🇧🇩', 'PK': '🇵🇰', 'LK': '🇱🇰', 'BT': '🇧🇹', 'US': '🇺🇸', 'GB': '🇬🇧', 'AU': '🇦🇺', 'CA': '🇨🇦' };
     const countries = { 'NP': 'Nepal', 'IN': 'India', 'BD': 'Bangladesh', 'PK': 'Pakistan', 'LK': 'Sri Lanka', 'BT': 'Bhutan', 'US': 'USA', 'GB': 'UK', 'AU': 'Australia', 'CA': 'Canada' };
+
+    // Load preset source
+    function loadPreset() {
+      const select = document.getElementById('presetSelect');
+      const url = select.value;
+      if (url) {
+        playlistUrlInput.value = url;
+        loadPlaylist();
+      }
+    }
 
     // Parse M3U
     function parseM3U(text) {
