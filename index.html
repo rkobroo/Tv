@@ -326,9 +326,10 @@ let hls = null;
       const select = document.getElementById('presetSelect');
       const url = select.value;
       
-      // iplstreams - open in floating player
+      // iplstreams - open in main player
       if (url.startsWith('https://iplstreams.com/')) {
-        showFloatPlayer(url, select.options[select.selectedIndex].text);
+        const streamTitle = select.options[select.selectedIndex].text;
+        loadIplstreams(url, streamTitle);
         return;
       }
       
@@ -350,6 +351,33 @@ let hls = null;
       if (url) {
         playlistUrlInput.value = url;
         loadPlaylist();
+      }
+    }
+    
+    function loadIplstreams(url, title) {
+      nowPlayingEl.innerHTML = title + ' <button onclick="popOutIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:10px;">Pop Out</button>';
+      
+      player.style.display = 'none';
+      let iframe = document.getElementById('yonoFrame');
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'yonoFrame';
+        iframe.style.cssText = 'width:100%;height:100%;border:none;';
+        iframe.setAttribute('allowfullscreen', '');
+        document.querySelector('.video-wrap').appendChild(iframe);
+      }
+      iframe.src = url;
+      iframe.style.display = 'block';
+      currentStreamUrl = url;
+    }
+    
+    let currentStreamUrl = '';
+    
+    function popOutIplstreams() {
+      if (currentStreamUrl) {
+        showFloatPlayer(currentStreamUrl, 'Stream');
+        document.getElementById('yonoFrame').style.display = 'none';
+        document.getElementById('yonoFrame').src = '';
       }
     }
 
