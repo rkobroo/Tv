@@ -78,6 +78,10 @@
         <option value="">-- Select Source --</option>
         <option value="https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=MI">📡 YonoTV Live</option>
         <option value="__IPLSTREAMS__">🏏 Willow TV IPL</option>
+        <option value="https://iplstreams.com/star-sports-1">⭐ Star Sports 1</option>
+        <option value="https://iplstreams.com/star-sports-2">⭐ Star Sports 2</option>
+        <option value="https://iplstreams.com/star-sports-hindi">⭐ Star Sports Hindi</option>
+        <option value="https://iplstreams.com/willow-2">🏏 Willow TV 2</option>
         <option value="__LIVE_MATCHES__">🏏 Live Matches</option>
         <option value="https://opentivu.netlify.app/api/it">🇮🇹 Italian TV</option>
         <option value="https://raw.githubusercontent.com/BuddyChewChew/pluto/main/pluto_us.m3u">📺 Pluto TV USA</option>
@@ -298,21 +302,14 @@ let hls = null;
       const select = document.getElementById('presetSelect');
       const url = select.value;
       
+      // iplstreams - open in new tab
+      if (url.startsWith('https://iplstreams.com/')) {
+        window.open(url, '_blank');
+        return;
+      }
+      
       if (url === '__IPLSTREAMS__') {
-        // Open Willow/iplstreams in iframe
-        nowPlayingEl.textContent = 'Loading Willow TV...';
-        
-        player.style.display = 'none';
-        let iframe = document.getElementById('yonoFrame');
-        if (!iframe) {
-          iframe = document.createElement('iframe');
-          iframe.id = 'yonoFrame';
-          iframe.style.cssText = 'width:100%;height:100%;border:none;';
-          iframe.setAttribute('allowfullscreen', '');
-          document.querySelector('.video-wrap').appendChild(iframe);
-        }
-        iframe.src = 'https://iplstreams.com/willow-2';
-        iframe.style.display = 'block';
+        window.open('https://iplstreams.com/willow-2', '_blank');
         return;
       }
       
