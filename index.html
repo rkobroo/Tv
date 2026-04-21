@@ -67,9 +67,33 @@
     .match-detail { background: #252525; padding: 16px; border-radius: 10px; margin-bottom: 16px; }
     .match-detail .vs { font-size: 24px; font-weight: bold; text-align: center; margin: 10px 0; }
     .match-detail .league { font-size: 12px; color: #888; text-align: center; }
+    
+    /* Floating Player */
+    .float-player { position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #000; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); overflow: hidden; transition: all 0.3s ease; }
+    .float-player.collapsed { width: 60px !important; height: 45px !important; }
+    .float-player.size-small { width: 200px; height: 150px; }
+    .float-player.size-medium { width: 320px; height: 240px; }
+    .float-player.size-large { width: 480px; height: 360px; }
+    .float-player iframe { width: 100%; height: 100%; border: none; }
+    .float-controls { position: absolute; top: 0; left: 0; right: 0; height: 30px; background: rgba(0,0,0,0.7); display: flex; justify-content: space-between; align-items: center; padding: 0 8px; opacity: 0; transition: opacity 0.2s; }
+    .float-player:hover .float-controls { opacity: 1; }
+    .float-btn { background: none; border: none; color: #fff; font-size: 12px; cursor: pointer; padding: 4px 8px; }
+    .float-btn:hover { color: #4a9eff; }
+    .float-title { color: #fff; font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; flex: 1; }
   </style>
 </head>
 <body>
+  <!-- Floating Player -->
+  <div id="floatPlayer" class="float-player size-medium collapsed" style="display:none;">
+    <div class="float-controls">
+      <span class="float-title" id="floatTitle">Playing</span>
+      <button class="float-btn" onclick="toggleFloatSize()">📐</button>
+      <button class="float-btn" onclick="minimizeFloat()">_</button>
+      <button class="float-btn" onclick="closeFloat()">✕</button>
+    </div>
+    <iframe id="floatIframe" src=""></iframe>
+  </div>
+
   <header>
     <h1>IPTV Player</h1>
     <div class="input-row">
@@ -302,26 +326,14 @@ let hls = null;
       const select = document.getElementById('presetSelect');
       const url = select.value;
       
-      // iplstreams - open in iframe
+      // iplstreams - open in floating player
       if (url.startsWith('https://iplstreams.com/')) {
-        nowPlayingEl.textContent = 'Loading stream...';
-        
-        player.style.display = 'none';
-        let iframe = document.getElementById('yonoFrame');
-        if (!iframe) {
-          iframe = document.createElement('iframe');
-          iframe.id = 'yonoFrame';
-          iframe.style.cssText = 'width:100%;height:100%;border:none;';
-          iframe.setAttribute('allowfullscreen', '');
-          document.querySelector('.video-wrap').appendChild(iframe);
-        }
-        iframe.src = url;
-        iframe.style.display = 'block';
+        showFloatPlayer(url, select.options[select.selectedIndex].text);
         return;
       }
       
       if (url === '__IPLSTREAMS__') {
-        window.open('https://iplstreams.com/willow-2', '_blank');
+        showFloatPlayer('https://iplstreams.com/willow-2', 'Willow TV');
         return;
       }
       
@@ -540,6 +552,40 @@ let hls = null;
 
     // Auto-load default playlist
     loadPlaylist();
+    
+    // Floating Player Functions
+    let floatSizes = ['small', 'medium', 'large'];
+    let currentSize = 1;
+    let isMinimized = false;
+    
+    function showFloatPlayer(url, title) {
+      const floatPlayer = document.getElementById('floatPlayer');
+      const floatIframe = document.getElementById('floatIframe');
+      const floatTitle = document.getElementById('floatTitle');
+      
+      floatIframe.src = url;
+      floatTitle.textContent = title || 'Stream';
+      floatPlayer.style.display = 'block';
+      floatPlayer.classList.remove('collapsed');
+    }
+    
+    function closeFloat() {
+      document.getElementById('floatPlayer').style.display = 'none';
+      document.getElementById('floatIframe').src = '';
+    }
+    
+    function minimizeFloat() {
+      const floatPlayer = document.getElementById('floatPlayer');
+      floatPlayer.classList.toggle('collapsed');
+      isMinimized = floatPlayer.classList.contains('collapsed');
+    }
+    
+    function toggleFloatSize() {
+      const floatPlayer = document.getElementById('floatPlayer');
+      floatSizes.forEach(s => floatPlayer.classList.remove('size-' + s));
+      currentSize = (currentSize + 1) % floatSizes.length;
+      floatPlayer.classList.add('size-' + floatSizes[currentSize]);
+    }
   </script>
 </body>
 </html>
