@@ -142,19 +142,63 @@
 
     let allChannels = [];
     let currentChannel = null;
-    let hls = null;
+let hls = null;
     let activeCategory = 'all';
     let isLiveMatchesMode = false;
+    let cachedMatches = null;
+    let cachedStreamLinks = {};
     
-    const liveMatches = [
+    // Default matches (fallback)
+    const defaultMatches = [
       { id: 'ipl', name: 'IPL 2026', team1: 'RCB', team2: 'SRH', time: 'LIVE', league: 'Indian Premier League', stadium: 'Rajiv Gandhi International Stadium' },
       { id: 'psl', name: 'PSL 2026', team1: 'Islamabad United', team2: 'Lahore Qalandars', time: 'LIVE', league: 'Pakistan Super League', stadium: 'Rawalpindi Cricket Stadium' },
       { id: 'bbl', name: 'BBL 2026', team1: 'Sydney Sixers', team2: 'Sydney Thunder', time: '19:30', league: 'Big Bash League', stadium: 'SCG' },
       { id: 'cpl', name: 'CPL 2026', team1: 'Trinbago', team2: 'St Kitts', time: '20:00', league: 'Caribbean Premier League', stadium: 'Brian Lara Cricket Academy' },
-      { id: 'wpl', name: 'WPL 2026', team1: 'Mumbai Indians', team2: 'Delhi Capitals', time: '14:00', league: 'Women's Premier League', stadium: 'Brabourne Stadium' }
+      { id: 'wpl', name: 'WPL 2026', team1: 'Mumbai Indians', team2: 'Delhi Capitals', time: '14:00', league: 'Womens Premier League', stadium: 'Brabourne Stadium' }
     ];
     
-    const streamLinks = {
+    // Default stream links (fallback)
+    const defaultStreamLinks = {
+      'ipl': [
+        { name: 'Smoothlink 1 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl1' },
+        { name: 'Smoothlink 2 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl2' },
+        { name: 'HD Link 1 - English', quality: 'FHD 1080p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl3' },
+        { name: 'HD Link 2 - Tamil', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl4' },
+        { name: 'SD Link - Telugu', quality: 'SD 480p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl5' }
+      ],
+      'psl': [
+        { name: 'Smoothlink 1 - Urdu', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=psl1' },
+        { name: 'Smoothlink 2 - English', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=psl2' },
+        { name: 'HD Link 1 - Punjabi', quality: 'FHD 1080p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=psl3' }
+      ],
+      'bbl': [
+        { name: 'Smoothlink 1 - English', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=bbl1' },
+        { name: 'HD Link 1 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=bbl2' }
+      ],
+      'cpl': [
+        { name: 'Smoothlink 1 - English', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=cpl1' },
+        { name: 'HD Link 1 - Hindi', quality: 'FHD 1080p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=cpl2' }
+      ],
+      'wpl': [
+        { name: 'Smoothlink 1 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=wpl1' },
+        { name: 'Smoothlink 2 - English', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=wpl2' },
+        { name: 'HD Link 1 - Tamil', quality: 'FHD 1080p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=wpl3' }
+      ]
+    };
+    
+    // Fetch live matches from server
+    async function fetchLiveMatches() {
+      try {
+        const res = await fetch('/api/live-matches');
+        const data = await res.json();
+        if (data.matches && data.matches.length > 0) {
+          cachedMatches = data.matches;
+          cachedStreamLinks = data.streamLinks || {};
+        }
+      } catch (e) {
+        console.log('Using cached/default matches');
+      }
+    }
       'ipl': [
         { name: 'Smoothlink 1 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl1' },
         { name: 'Smoothlink 2 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl2' },
@@ -202,7 +246,7 @@
         </div>
       `;
       
-      const links = streamLinks[match.id] || [];
+      const links = (cachedStreamLinks[match.id] || defaultStreamLinks[match.id]) || [];
       let linksHtml = '<h3 style="margin:16px 0 10px 0;font-size:14px;color:#888;">Select Streaming Quality:</h3>';
       
       links.forEach(link => {
@@ -235,7 +279,9 @@
     function renderLiveMatches() {
       channelListEl.innerHTML = '';
       
-      liveMatches.forEach(match => {
+      const matches = cachedMatches || defaultMatches;
+      
+      matches.forEach(match => {
         const div = document.createElement('div');
         div.className = 'live-match';
         div.innerHTML = `
@@ -261,8 +307,11 @@
       if (url === '__LIVE_MATCHES__') {
         isLiveMatchesMode = true;
         allChannels = [];
-        renderLiveMatches();
-        nowPlayingEl.textContent = 'Live Matches - Select a match to watch';
+        nowPlayingEl.textContent = 'Live Matches - Loading latest matches...';
+        fetchLiveMatches().then(() => {
+          renderLiveMatches();
+          nowPlayingEl.textContent = 'Live Matches - Select a match to watch';
+        });
         return;
       }
       
