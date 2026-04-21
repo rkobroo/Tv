@@ -220,26 +220,12 @@ let hls = null;
         </div>
       `;
       
-      const links = (cachedStreamLinks[match.id] || defaultStreamLinks[match.id]) || [];
-      let linksHtml = '<h3 style="margin:16px 0 10px 0;font-size:14px;color:#888;">Select Streaming Quality:</h3>';
-      
-      links.forEach(link => {
-        linksHtml += `
-          <div class="stream-link" onclick="playStream('${link.url}')">
-            <div class="name">${link.name}</div>
-            <div class="quality">${link.quality}</div>
-          </div>
-        `;
-      });
-      
-      if (links.length === 0) {
-        linksHtml += `
-          <div class="stream-link" onclick="playStream('https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=${match.id}')">
-            <div class="name">Watch Live</div>
-            <div class="quality">Click to Watch</div>
-          </div>
-        `;
-      }
+      linksHtml += `
+        <div class="stream-link" onclick="openMatchPage('${match.id}')">
+          <div class="name">Open Match Page</div>
+          <div class="quality">Click to get HD/Smooth links</div>
+        </div>
+      `;
       
       modalBody.innerHTML = detailHtml + linksHtml;
       modal.classList.add('show');
@@ -248,6 +234,25 @@ let hls = null;
     function playStream(url) {
       closeModal();
       playChannel({ name: 'Live Stream', url: url, group: 'Live' });
+    }
+    
+    function openMatchPage(matchId) {
+      closeModal();
+      // Open newsecrettips match page in iframe
+      const matchUrl = 'https://www.newsecrettips.com/p/match-data.html?id=' + matchId;
+      nowPlayingEl.textContent = 'Loading match page...';
+      
+      player.style.display = 'none';
+      let iframe = document.getElementById('yonoFrame');
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'yonoFrame';
+        iframe.style.cssText = 'width:100%;height:100%;border:none;';
+        iframe.setAttribute('allowfullscreen', '');
+        document.querySelector('.video-wrap').appendChild(iframe);
+      }
+      iframe.src = matchUrl;
+      iframe.style.display = 'block';
     }
 
     function renderLiveMatches() {
