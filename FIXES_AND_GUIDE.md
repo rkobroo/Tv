@@ -1,4 +1,4 @@
-# Live Sports TV - Fix Summary & Setup Guide
+# Live Sports TV - Fix Summary & Setup Guidee
 
 ## ✅ Issues Fixed
 
