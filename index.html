@@ -238,10 +238,14 @@ let hls = null;
     
     function openMatchPage(matchId) {
       closeModal();
-      // Open newsecrettips match page in iframe
+      // Show buttons to open newsecrettips page
       const matchUrl = 'https://www.newsecrettips.com/p/match-data.html?id=' + matchId;
-      nowPlayingEl.textContent = 'Loading match page...';
+      nowPlayingEl.textContent = 'Opening match page...';
       
+      // Open in new tab
+      window.open(matchUrl, '_blank');
+      
+      // Also show in iframe
       player.style.display = 'none';
       let iframe = document.getElementById('yonoFrame');
       if (!iframe) {
@@ -286,21 +290,12 @@ let hls = null;
       if (url === '__LIVE_MATCHES__') {
         isLiveMatchesMode = true;
         allChannels = [];
-        nowPlayingEl.textContent = 'Live Matches - Loading latest matches...';
-        fetchLiveMatches().then(() => {
-          renderLiveMatches();
-          nowPlayingEl.textContent = 'Live Matches - Select a match to watch';
-        }).catch(() => {
-          renderLiveMatches();
-          nowPlayingEl.textContent = 'Live Matches - Select a match to watch';
-        });
+        nowPlayingEl.textContent = 'Loading matches...';
+        renderLiveMatches();
         return;
       }
       
       isLiveMatchesMode = false;
-      activeCategory = 'all';
-      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-      document.querySelector('.chip[data-cat="all"]').classList.add('active');
       
       if (url) {
         playlistUrlInput.value = url;
