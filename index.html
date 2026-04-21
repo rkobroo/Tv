@@ -197,34 +197,8 @@ let hls = null;
         }
       } catch (e) {
         console.log('Using cached/default matches');
-      }
+}
     }
-      'ipl': [
-        { name: 'Smoothlink 1 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl1' },
-        { name: 'Smoothlink 2 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl2' },
-        { name: 'HD Link 1 - English', quality: 'FHD 1080p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl3' },
-        { name: 'HD Link 2 - Tamil', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl4' },
-        { name: 'SD Link - Telugu', quality: 'SD 480p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl5' }
-      ],
-      'psl': [
-        { name: 'Smoothlink 1 - Urdu', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=psl1' },
-        { name: 'Smoothlink 2 - English', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=psl2' },
-        { name: 'HD Link 1 - Punjabi', quality: 'FHD 1080p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=psl3' }
-      ],
-      'bbl': [
-        { name: 'Smoothlink 1 - English', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=bbl1' },
-        { name: 'HD Link 1 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=bbl2' }
-      ],
-      'cpl': [
-        { name: 'Smoothlink 1 - English', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=cpl1' },
-        { name: 'HD Link 1 - Hindi', quality: 'FHD 1080p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=cpl2' }
-      ],
-      'wpl': [
-        { name: 'Smoothlink 1 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=wpl1' },
-        { name: 'Smoothlink 2 - English', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=wpl2' },
-        { name: 'HD Link 1 - Tamil', quality: 'FHD 1080p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=wpl3' }
-      ]
-    };
 
     function closeModal(e) {
       if (e && e.target !== e.currentTarget) return;
@@ -311,11 +285,18 @@ let hls = null;
         fetchLiveMatches().then(() => {
           renderLiveMatches();
           nowPlayingEl.textContent = 'Live Matches - Select a match to watch';
+        }).catch(() => {
+          renderLiveMatches();
+          nowPlayingEl.textContent = 'Live Matches - Select a match to watch';
         });
         return;
       }
       
       isLiveMatchesMode = false;
+      activeCategory = 'all';
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      document.querySelector('.chip[data-cat="all"]').classList.add('active');
+      
       if (url) {
         playlistUrlInput.value = url;
         loadPlaylist();
