@@ -532,7 +532,9 @@ let hls = null;
       channelListEl.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading channels...</div>';
       
       try {
-        const response = await fetch(url);
+        // Use CORS proxy for fetching playlists
+        const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+        const response = await fetch(proxyUrl);
         if (!response.ok) throw new Error('Failed to fetch: ' + response.status);
         
         const text = await response.text();
