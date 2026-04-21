@@ -186,21 +186,7 @@ let hls = null;
       ]
     };
     
-    // Fetch live matches from server
-    async function fetchLiveMatches() {
-      try {
-        const res = await fetch('/api/live-matches');
-        const data = await res.json();
-        if (data.matches && data.matches.length > 0) {
-          cachedMatches = data.matches;
-          cachedStreamLinks = data.streamLinks || {};
-        }
-      } catch (e) {
-        console.log('Using cached/default matches');
-}
-    }
 
-    function closeModal(e) {
       if (e && e.target !== e.currentTarget) return;
       document.getElementById('streamModal').classList.remove('show');
     }
