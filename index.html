@@ -415,7 +415,7 @@ let hls = null;
       }
       // Skip proxy for common working sources
       const directHosts = ['opentivu', 'pluto.tv', 'service-stitcher', 'akamai', 'cloudfront', 'cdn', 'stream', 'channel'];
-      if (directHosts.some(h => url.includes(h))) {
+      if (directHosts.some(h => url.includes(h)) {
         return url;
       }
       // Use allorigins proxy as fallback
