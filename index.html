@@ -532,9 +532,13 @@ let hls = null;
       channelListEl.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading channels...</div>';
       
       try {
-        // Use CORS proxy for fetching playlists
-        const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-        const response = await fetch(proxyUrl);
+        let fetchUrl = url;
+        // Use CORS proxy for fetching (skip for same-origin or known working APIs)
+        if (!url.includes(window.location.host) && !url.includes('localhost')) {
+          fetchUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+        }
+        
+        const response = await fetch(fetchUrl);
         if (!response.ok) throw new Error('Failed to fetch: ' + response.status);
         
         const text = await response.text();
@@ -553,7 +557,7 @@ let hls = null;
         renderChannels();
       } catch (error) {
         console.error('Error:', error);
-        channelListEl.innerHTML = `<div class="loading" style="color:#f55">Error: ${error.message}<br><br>Tip: Run 'node server.js' then open http://localhost:3000</div>`;
+        channelListEl.innerHTML = `<div class="loading" style="color:#f55">Error: ${error.message}<br><br>Tip: Check console for details</div>`;
       }
     }
 
