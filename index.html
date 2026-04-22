@@ -97,7 +97,7 @@
   <header>
     <h1>IPTV Player</h1>
     <div class="input-row">
-      <input type="text" class="url-input" id="playlistUrl" placeholder="Paste M3U/M3U8 playlist URL..." value="https://opentivu.netlify.app/api/it" />
+      <input type="text" class="url-input" id="playlistUrl" placeholder="Paste M3U/M3U8 playlist URL..." />
       <select id="presetSelect" onchange="loadPreset()" style="padding:10px;background:#333;color:#fff;border:1px solid #444;border-radius:6px;margin-right:5px;max-width:200px;">
         <option value="">-- Select Source --</option>
         <option value="https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=MI">📡 YonoTV Live</option>
@@ -391,7 +391,7 @@ let hls = null;
       for (const line of lines) {
         const t = line.trim();
         
-        if (t.startsWith('#EXTINF:')) {
+        if (t.startsWith('#EXTINF:') || t.startsWith('#EXTINF:-')) {
           const parts = t.split(',');
           const name = parts[1]?.trim() || 'Unknown';
           const country = ((t.match(/tvg-country="([^"]*)"/) || [])[1] || '').toUpperCase();
