@@ -3,7 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>IPTV Player</title>
+  <meta name="theme-color" content="#111111" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>RKO LIVE TV</title>
+  <link rel="manifest" href="/manifest.json" />
   <link href="https://unpkg.com/video.js@8/dist/video-js.min.css" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; }
@@ -121,7 +125,7 @@
   </div>
 
   <header>
-    <h1>IPTV Player</h1>
+    <h1>IPTV Player <button id="installBtn" onclick="installApp()" style="display:none;background:#4a9eff;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;vertical-align:middle;">📱 Install App</button></h1>
     <div class="input-row">
       <input type="text" class="url-input" id="playlistUrl" placeholder="Paste M3U/M3U8 playlist URL..." />
       <select id="presetSelect" onchange="loadPreset()" style="padding:10px;background:#333;color:#fff;border:1px solid #444;border-radius:6px;margin-right:5px;max-width:200px;">
@@ -701,6 +705,10 @@ let hls = null;
     floatControls.addEventListener('touchstart', (e) => { isDragging = true; startX = e.touches[0].clientX; startY = e.touches[0].clientY; const rect = floatPlayer.getBoundingClientRect(); initialX = rect.left; initialY = rect.top; floatPlayer.style.right = 'auto'; });
     document.addEventListener('touchmove', (e) => { if (!isDragging) return; e.preventDefault(); const dx = e.touches[0].clientX - startX, dy = e.touches[0].clientY - startY; floatPlayer.style.left = (initialX + dx) + 'px'; floatPlayer.style.top = (initialY + dy) + 'px'; }, { passive: false });
     document.addEventListener('touchend', () => isDragging = false);
+    
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; document.getElementById('installBtn').style.display = 'inline-block'; });
+    function installApp() { if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.then(() => { deferredPrompt = null; }); } }
   </script>
 </body>
 </html>
