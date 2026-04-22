@@ -587,14 +587,35 @@ let hls = null;
     async function enterPiP() {
       if (document.pictureInPictureElement) {
         document.exitPictureInPicture();
-      } else if (player.src) {
+      } else if (player.src || player.currentSrc) {
         try {
+          player.autoPictureInPicture = true;
           await player.requestPictureInPicture();
         } catch(e) {
-          alert('PiP not supported on this device/browser');
+          // Fallback: open popup
+          pipIplstreams();
         }
       }
     }
+    
+    // Setup MediaSession for auto-PiP on background
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.setActionHandler('enterpictureinpicture', () => {
+        if (player.src || player.currentSrc) {
+          player.requestPictureInPicture();
+        }
+      });
+    }
+    
+    // Visibility change for auto-PiP
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && (player.src || player.currentSrc) && !document.pictureInPictureElement) {
+        try {
+          player.autoPictureInPicture = true;
+          player.requestPictureInPicture();
+        } catch(e) {}
+      }
+    });
     
     // Load playlist
     async function loadPlaylist() {
