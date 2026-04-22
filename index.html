@@ -535,9 +535,9 @@ let hls = null;
       
       try {
         let fetchUrl = url;
-        // Use CORS proxy for fetching (skip for same-origin or known working APIs)
+        // Direct fetch for GitHub/raw URLs (CORS enabled)
         if (!url.includes(window.location.host) && !url.includes('localhost')) {
-          fetchUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+          fetchUrl = url;
         }
         
         const response = await fetch(fetchUrl);
