@@ -497,19 +497,6 @@ let hls = null;
       currentChannel = ch;
       nowPlayingEl.textContent = `Playing: ${ch.name}`;
       
-      // Immediately stop previous stream
-      let iframe = document.getElementById('yonoFrame');
-      if (iframe) {
-        iframe.src = 'about:blank';
-        iframe.style.display = 'block';
-      } else {
-        iframe = document.createElement('iframe');
-        iframe.id = 'yonoFrame';
-        iframe.style.cssText = 'width:100%;height:100%;border:none;';
-        iframe.setAttribute('allowfullscreen', '');
-        document.querySelector('.video-wrap').appendChild(iframe);
-      }
-      
       // Destroy previous hls
       if (hls) {
         hls.destroy();
@@ -517,10 +504,37 @@ let hls = null;
       }
       player.pause();
       player.src = '';
-      player.style.display = 'none';
       
-      // Immediately load new channel
-      iframe.src = ch.url;
+      // Hide iframe, show video player
+      let iframe = document.getElementById('yonoFrame');
+      if (iframe) iframe.style.display = 'none';
+      player.style.display = 'block';
+      
+      // Check if HLS.js is needed
+      if (ch.url.includes('.m3u8')) {
+        if (Hls.isSupported()) {
+          hls = new Hls();
+          hls.loadSource(ch.url);
+          hls.attachMedia(player);
+          player.play();
+        } else {
+          // Fallback to iframe
+          player.style.display = 'none';
+          if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'yonoFrame';
+            iframe.style.cssText = 'width:100%;height:100%;border:none;';
+            iframe.setAttribute('allowfullscreen', '');
+            document.querySelector('.video-wrap').appendChild(iframe);
+          }
+          iframe.src = ch.url;
+          iframe.style.display = 'block';
+        }
+      } else {
+        // MP4 or other - use video tag
+        player.src = ch.url;
+        player.play();
+      }
       return;
     }
 
@@ -550,6 +564,14 @@ let hls = null;
         
         const text = await response.text();
         if (!text || text.length < 100) throw new Error('Empty or invalid response');
+        
+        // Check if it's a direct HLS stream (live stream, not a channel list)
+        if (text.includes('#EXT-X-VERSION') || text.includes('#EXT-X-TARGETDURATION') || (!text.includes('#EXTINF:') && text.includes('.ts'))) {
+          // Direct HLS stream - play directly
+          allChannels = [{ name: 'Live Stream', url: url, group: 'Live', logo: '' }];
+          renderChannels();
+          return;
+        }
         
         allChannels = parseM3U(text);
         
