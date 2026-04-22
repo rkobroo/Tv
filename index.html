@@ -118,6 +118,7 @@
     <div class="float-controls">
       <span class="float-title" id="floatTitle">Playing</span>
       <button class="float-btn" onclick="toggleFloatSize()">📐</button>
+      <button class="float-btn" onclick="floatPip()" title="Picture-in-Picture">🎬</button>
       <button class="float-btn" onclick="minimizeFloat()">_</button>
       <button class="float-btn" onclick="closeFloat()">✕</button>
     </div>
@@ -364,6 +365,8 @@ let hls = null;
       }
       
       if (url === '__IPLSTREAMS__') {
+        isWillowMode = true;
+        nowPlayingEl.innerHTML = 'Loading Willow TV... <button onclick="popOutIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:10px;">Pop Out</button> <button onclick="pipIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:5px;">🎬 PiP</button>';
         showFloatPlayer('https://iplstreams.com/willow-2', 'Willow TV');
         return;
       }
@@ -385,7 +388,7 @@ let hls = null;
     }
     
     function loadIplstreams(url, title) {
-      nowPlayingEl.innerHTML = title + ' <button onclick="popOutIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:10px;">Pop Out</button>';
+      nowPlayingEl.innerHTML = title + ' <button onclick="popOutIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:10px;">Pop Out</button> <button onclick="pipIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:5px;">🎬 PiP</button>';
       
       player.style.display = 'none';
       let iframe = document.getElementById('yonoFrame');
@@ -409,6 +412,19 @@ let hls = null;
         showFloatPlayer(currentStreamUrl, 'Stream');
         document.getElementById('yonoFrame').style.display = 'none';
         document.getElementById('yonoFrame').src = '';
+      }
+    }
+    
+    function pipIplstreams() {
+      const iframe = document.getElementById('yonoFrame');
+      if (!currentStreamUrl && iframe.src) {
+        currentStreamUrl = iframe.src;
+      }
+      if (currentStreamUrl) {
+        const pipWin = window.open(currentStreamUrl, 'pip', 'width=420,height=320,menubar=no,toolbar=no,location=no');
+        if (!pipWin) {
+          alert('Please allow popups to use PiP');
+        }
       }
     }
 
@@ -663,11 +679,13 @@ let hls = null;
     let floatSizes = ['small', 'medium', 'large'];
     let currentSize = 1;
     let isMinimized = false;
+    let currentFloatUrl = '';
     
     function showFloatPlayer(url, title) {
       const floatPlayer = document.getElementById('floatPlayer');
       const floatIframe = document.getElementById('floatIframe');
       const floatTitle = document.getElementById('floatTitle');
+      currentFloatUrl = url;
       
       floatIframe.src = url;
       floatTitle.textContent = title || 'Stream';
@@ -691,6 +709,21 @@ let hls = null;
       floatSizes.forEach(s => floatPlayer.classList.remove('size-' + s));
       currentSize = (currentSize + 1) % floatSizes.length;
       floatPlayer.classList.add('size-' + floatSizes[currentSize]);
+    }
+    
+    async function floatPip() {
+      if (currentFloatUrl) {
+        try {
+          if (document.pictureInPictureElement) {
+            await document.exitPictureInPicture();
+          } else {
+            await document.getElementById('floatIframe').requestPictureInPicture();
+          }
+        } catch(e) {
+          const pipWin = window.open(currentFloatUrl, 'pip', 'width=420,height=320,menubar=no,toolbar=no,location=no');
+          if (!pipWin) alert('Please allow popups for PiP');
+        }
+      }
     }
     
     // Floating Player Drag
