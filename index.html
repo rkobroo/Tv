@@ -512,7 +512,7 @@ let hls = null;
       
       // Check if HLS.js is needed
       if (ch.url.includes('.m3u8')) {
-        if (Hls.isSupported()) {
+        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
           hls = new Hls();
           hls.loadSource(ch.url);
           hls.attachMedia(player);
@@ -554,7 +554,15 @@ let hls = null;
       
       try {
         let fetchUrl = url;
-        // Direct fetch for GitHub/raw URLs (CORS enabled)
+        // Check if it's a direct m3u8 URL - play directly
+        if (url.endsWith('.m3u8') && (url.startsWith('http://') || url.includes('.'))) {
+          // Direct m3u8 - play directly without fetching playlist
+          allChannels = [{ name: 'Live Stream', url: url, group: 'Live', logo: '' }];
+          renderChannels();
+          return;
+        }
+        
+        // Use CORS proxy for other URLs
         if (!url.includes(window.location.host) && !url.includes('localhost')) {
           fetchUrl = url;
         }
