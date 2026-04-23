@@ -131,7 +131,6 @@
       <input type="text" class="url-input" id="playlistUrl" placeholder="Paste M3U/M3U8 playlist URL..." />
       <select id="presetSelect" onchange="loadPreset()" style="padding:10px;background:#333;color:#fff;border:1px solid #444;border-radius:6px;margin-right:5px;max-width:200px;">
         <option value="">-- Select Source --</option>
-        <option value="__LIVE_MATCHES__">🏏 Live Matches</option>
         <option value="__IPLSTREAMS__">🏏 Willow TV IPL</option>
         <option value="https://iplstreams.com/star-sports-1">⭐ Star Sports 1</option>
         <option value="https://iplstreams.com/star-sports-2">⭐ Star Sports 2</option>
@@ -228,54 +227,8 @@
 let hls = null;
     let activeCategory = 'all';
     let isLiveMatchesMode = false;
-    let cachedMatches = null;
+let cachedMatches = null;
     let cachedStreamLinks = {};
-    
-    // Default matches (fallback)
-    const defaultMatches = [
-      { id: 'ads', name: 'Ads & Events', team1: 'LIVE TV', team2: 'Sports', time: 'LIVE', league: 'Live Sports', stadium: 'Various' },
-      { id: 'ipl', name: 'IPL 2026', team1: 'RCB', team2: 'SRH', time: 'LIVE', league: 'Indian Premier League', stadium: 'Rajiv Gandhi International Stadium' },
-      { id: 'psl', name: 'PSL 2026', team1: 'Islamabad United', team2: 'Lahore Qalandars', time: 'LIVE', league: 'Pakistan Super League', stadium: 'Rawalpindi Cricket Stadium' },
-      { id: 'bbl', name: 'BBL 2026', team1: 'Sydney Sixers', team2: 'Sydney Thunder', time: '19:30', league: 'Big Bash League', stadium: 'SCG' },
-      { id: 'cpl', name: 'CPL 2026', team1: 'Trinbago', team2: 'St Kitts', time: '20:00', league: 'Caribbean Premier League', stadium: 'Brian Lara Cricket Academy' },
-      { id: 'wpl', name: 'WPL 2026', team1: 'Mumbai Indians', team2: 'Delhi Capitals', time: '14:00', league: 'Womens Premier League', stadium: 'Brabourne Stadium' }
-    ];
-    
-    // Default stream links (fallback)
-    const defaultStreamLinks = {
-      'ads': [
-        { name: 'Star Sports 1 Hindi', quality: 'HD', url: 'https://iplstreams.com/star-sports-hindi' },
-        { name: 'Willow TV', quality: 'HD', url: 'https://iplstreams.com/willow-2' },
-        { name: 'Willow TV 2', quality: 'HD', url: 'https://iplstreams.com/willow-2' },
-        { name: 'Willow TV IPL', quality: 'HD', url: 'https://iplstreams.com/willow-2' },
-        { name: 'Star Sports 2', quality: 'HD', url: 'https://iplstreams.com/star-sports-2' }
-      ],
-      'ipl': [
-        { name: 'Smoothlink 1 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl1' },
-        { name: 'Smoothlink 2 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl2' },
-        { name: 'HD Link 1 - English', quality: 'FHD 1080p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl3' },
-        { name: 'HD Link 2 - Tamil', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl4' },
-        { name: 'SD Link - Telugu', quality: 'SD 480p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=ipl5' }
-      ],
-      'psl': [
-        { name: 'Smoothlink 1 - Urdu', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=psl1' },
-        { name: 'Smoothlink 2 - English', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=psl2' },
-        { name: 'HD Link 1 - Punjabi', quality: 'FHD 1080p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=psl3' }
-      ],
-      'bbl': [
-        { name: 'Smoothlink 1 - English', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=bbl1' },
-        { name: 'HD Link 1 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=bbl2' }
-      ],
-      'cpl': [
-        { name: 'Smoothlink 1 - English', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=cpl1' },
-        { name: 'HD Link 1 - Hindi', quality: 'FHD 1080p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=cpl2' }
-      ],
-      'wpl': [
-        { name: 'Smoothlink 1 - Hindi', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=wpl1' },
-        { name: 'Smoothlink 2 - English', quality: 'HD 720p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=wpl2' },
-        { name: 'HD Link 1 - Tamil', quality: 'FHD 1080p', url: 'https://yonotv.pages.dev/page?src=https://yonotv.pages.dev/LINK?id=wpl3' }
-]
-    };
     
     function closeModal(e) {
       if (e && e.target !== e.currentTarget) return;
@@ -337,23 +290,7 @@ let hls = null;
     }
 
     function renderLiveMatches() {
-      channelListEl.innerHTML = '';
-      
-      const matches = cachedMatches || defaultMatches;
-      
-      matches.forEach(match => {
-        const div = document.createElement('div');
-        div.className = 'live-match';
-        div.innerHTML = `
-          <div class="live-badge">LIVE</div>
-          <div class="match-teams">
-            <div class="teams">${match.team1} vs ${match.team2}</div>
-            <div class="time">${match.time} | ${match.league}</div>
-          </div>
-        `;
-        div.onclick = () => showStreamLinks(match);
-        channelListEl.appendChild(div);
-      });
+      channelListEl.innerHTML = '<div style="padding:20px;text-align:center;">No live matches available</div>';
     }
 
     const flags = { 'NP': '🇳🇵', 'IN': '🇮🇳', 'BD': '🇧🇩', 'PK': '🇵🇰', 'LK': '🇱🇰', 'BT': '🇧🇹', 'US': '🇺🇸', 'GB': '🇬🇧', 'AU': '🇦🇺', 'CA': '🇨🇦', 'IT': '🇮🇹', 'DE': '🇩🇪', 'FR': '🇫🇷', 'ES': '🇪🇸', 'BR': '🇧🇷', 'MX': '🇲🇽', 'JP': '🇯🇵', 'KR': '🇰🇷', 'CN': '🇨🇳', 'RU': '🇷🇺' };
@@ -375,14 +312,6 @@ let hls = null;
         isWillowMode = true;
         nowPlayingEl.innerHTML = 'Loading Willow TV... <button onclick="popOutIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:10px;">Pop Out</button> <button onclick="pipIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:5px;">🎬 PiP</button>';
         showFloatPlayer('https://iplstreams.com/willow-2', 'Willow TV');
-        return;
-      }
-      
-      if (url === '__LIVE_MATCHES__') {
-        isLiveMatchesMode = true;
-        allChannels = [];
-        nowPlayingEl.textContent = 'Loading matches...';
-        renderLiveMatches();
         return;
       }
       
