@@ -406,6 +406,24 @@ let hls = null;
         iframe.setAttribute('allowfullscreen', '');
         iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
         document.querySelector('.video-wrap').appendChild(iframe);
+        
+        // Try to remove ads after load
+        iframe.onload = () => {
+          try {
+            const doc = iframe.contentDocument;
+            // Hide common ad elements
+            const adSelectors = [
+              '.ads', '.ad', '[class*="ads-"]', '[id*="ads"]', 
+              '[class*="banner"]', '[id*="banner"]',
+              '[class*="sponsor"]', '[id*="sponsor"]',
+              '.google-ad', '.ad-container', '.ad-wrapper',
+              '[class*="popup"]', '[class*="modal"][class*="ad"]'
+            ];
+            adSelectors.forEach(sel => {
+              doc.querySelectorAll(sel).forEach(el => el.style.display = 'none');
+            });
+          } catch(e) {}
+        };
       }
       iframe.src = url;
       iframe.style.display = 'block';
@@ -714,6 +732,24 @@ let hls = null;
       const floatIframe = document.getElementById('floatIframe');
       const floatTitle = document.getElementById('floatTitle');
       currentFloatUrl = url;
+      
+floatIframe.onload = () => {
+        try {
+          const doc = floatIframe.contentDocument;
+          const adSelectors = [
+            '.ads', '.ad', '[class*="ads-"]', '[id*="ads"]', 
+            '[class*="banner"]', '[id*="banner"]',
+            '[class*="sponsor"]', '.google-ad', '.ad-container'
+          ];
+          adSelectors.forEach(sel => {
+            doc.querySelectorAll(sel).forEach(el => el.style.display = 'none');
+          });
+          // Inject CSS to hide more ads
+          const style = doc.createElement('style');
+          style.textContent = '.ads, .ad, [class*="ads-"], [id*="ads"], [class*="banner"], [class*="sponsor"], .google-ad, .ad-container, .ad-wrapper, [class*="popup"][class*="ad"] { display: none !important; visibility: hidden !important; opacity: 0 !important; }';
+          doc.head.appendChild(style);
+        } catch(e) {}
+      };
       
       floatIframe.src = url;
       floatTitle.textContent = title || 'Stream';
