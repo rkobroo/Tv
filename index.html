@@ -213,6 +213,44 @@
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <script>
+    // Check for stream param to auto-play in popup
+    const urlParams = new URLSearchParams(window.location.search);
+    const streamUrl = urlParams.get('stream');
+    
+    window.addEventListener('DOMContentLoaded', () => {
+      if (streamUrl) {
+        // We're in popup - auto play the stream
+        document.getElementById('floatPlayer').style.display = 'none';
+        document.querySelector('.container').style.height = '100vh';
+        
+        const player = document.getElementById('player');
+        player.style.display = 'block';
+        
+        if (streamUrl.includes('.m3u8')) {
+          if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(streamUrl);
+            hls.attachMedia(player);
+            player.play();
+          }
+        } else {
+          // iframe for non-m3u8 URLs
+          let iframe = document.getElementById('yonoFrame');
+          if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'yonoFrame';
+            iframe.style.cssText = 'width:100%;height:100%;border:none;';
+            document.querySelector('.video-wrap').appendChild(iframe);
+          }
+          player.style.display = 'none';
+          iframe.style.display = 'block';
+          iframe.src = streamUrl;
+        }
+        
+        document.getElementById('nowPlaying').textContent = 'Playing in Popup';
+      }
+    });
+    
     const player = document.getElementById('player');
     const channelListEl = document.getElementById('channelList');
     const nowPlayingEl = document.getElementById('nowPlaying');
@@ -713,7 +751,9 @@ floatIframe.onload = () => {
     
     async function floatPip() {
       if (currentFloatUrl) {
-        window.open(currentFloatUrl, 'stream', 'width=420,height=320,menubar=no,toolbar=no,location=no');
+        // Open our website in popup with stream param
+        const popupUrl = window.location.href.split('?')[0] + '?stream=' + encodeURIComponent(currentFloatUrl);
+        window.open(popupUrl, 'stream', 'width=420,height=320,menubar=no,toolbar=no,location=no,scrollbars=no');
       }
     }
     
