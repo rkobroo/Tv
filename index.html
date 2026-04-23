@@ -339,17 +339,18 @@ let cachedMatches = null;
       // Watch IPL with Ads - show stream options
       if (url === '__IPL_ADS__') {
         allChannels = [
-          { name: 'Star Sports 1 Hindi', url: 'https://iplstreams.com/star-sports-hindi', group: 'IPL' },
-          { name: 'Willow TV', url: 'https://iplstreams.com/willow-2', group: 'IPL' },
-          { name: 'Willow TV 2', url: 'https://iplstreams.com/willow-2', group: 'IPL' },
-          { name: 'Willow TV IPL', url: 'https://iplstreams.com/willow-2', group: 'IPL' },
-          { name: 'Star Sports 2', url: 'https://iplstreams.com/star-sports-2', group: 'IPL' }
+          { name: 'Star Sports 1', url: 'https://iplstreams.com/star-sports-hindi', group: 'IPL', logo: 'https://i.imgur.com/Js5Eg2V.png' },
+          { name: 'Star Sports 2', url: 'https://iplstreams.com/star-sports-2', group: 'IPL', logo: 'https://i.imgur.com/Js5Eg2V.png' },
+          { name: 'Willow TV', url: 'https://iplstreams.com/willow-2', group: 'IPL', logo: 'https://i.imgur.com/MzxqTMf.png' },
+          { name: 'Willow TV 2', url: 'https://iplstreams.com/willow-2', group: 'IPL', logo: 'https://i.imgur.com/eg7RgjP.png' },
+          { name: 'Willow TV IPL', url: 'https://iplstreams.com/willow-2', group: 'IPL', logo: 'https://i.imgur.com/eg7RgjP.png' }
         ];
         channelListEl.innerHTML = '';
         allChannels.forEach((ch, idx) => {
           const div = document.createElement('div');
           div.className = 'stream-link';
-          div.innerHTML = `<div class="name">${ch.name}</div><div class="quality">${ch.group}</div>`;
+          const logoHtml = ch.logo ? `<img src="${ch.logo}" style="height:30px;margin-right:8px;vertical-align:middle;">` : '';
+          div.innerHTML = `<div class="name">${logoHtml}${ch.name}</div><div class="quality">${ch.group}</div>`;
           div.onclick = () => {
             showFloatPlayer(ch.url, ch.name);
             nowPlayingEl.innerHTML = `Playing: ${ch.name}`;
