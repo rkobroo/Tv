@@ -402,7 +402,7 @@ let hls = null;
       if (!iframe) {
         iframe = document.createElement('iframe');
         iframe.id = 'yonoFrame';
-        iframe.style.cssText = 'width:100%;height:100%;border:none;';
+iframe.style.cssText = 'width:100%;height:100%;border:none;';
         iframe.setAttribute('allowfullscreen', '');
         iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
         document.querySelector('.video-wrap').appendChild(iframe);
@@ -411,17 +411,6 @@ let hls = null;
         iframe.onload = () => {
           try {
             const doc = iframe.contentDocument;
-            // Block ad redirects
-            doc.addEventListener('click', (e) => {
-              const tag = e.target.tagName;
-              if (tag === 'A' || tag === 'BUTTON') {
-                const href = e.target.href || e.target.closest('a')?.href;
-                if (href && (href.includes('ads') || href.includes('click') || href.includes('redirect'))) {
-                  e.preventDefault();
-                  e.stopImmediatePropagation();
-                }
-              }
-            }, true);
             // Hide common ad elements
             const adSelectors = [
               '.ads', '.ad', '[class*="ads-"]', '[id*="ads"]', 
@@ -747,17 +736,6 @@ let hls = null;
 floatIframe.onload = () => {
         try {
           const doc = floatIframe.contentDocument;
-          // Block ad redirects - intercept link clicks
-          doc.addEventListener('click', (e) => {
-            const tag = e.target.tagName;
-            if (tag === 'A' || tag === 'BUTTON') {
-              const href = e.target.href || e.target.onclick;
-              if (href && (href.includes('ads') || href.includes('click') || href.includes('redirect'))) {
-                e.preventDefault();
-                e.stopPropagation();
-              }
-            }
-          }, true);
           // Hide common ad elements
           const adSelectors = [
             '.ads', '.ad', '[class*="ads-"]', '[id*="ads"]', 
