@@ -313,7 +313,22 @@ let cachedMatches = null;
           div.className = 'stream-link';
           div.innerHTML = `<div class="name">${ch.name}</div><div class="quality">${ch.group}</div>`;
           div.onclick = () => {
-            showFloatPlayer(ch.url, ch.name);
+            // Play in main player
+            currentChannel = ch;
+            nowPlayingEl.innerHTML = `Playing: ${ch.name} <button onclick="showFloatPlayer('${ch.url}', '${ch.name}')" style="background:#4a9eff;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:10px;">🎬 PiP</button>`;
+            player.style.display = 'none';
+            let iframe = document.getElementById('yonoFrame');
+            if (!iframe) {
+              iframe = document.createElement('iframe');
+              iframe.id = 'yonoFrame';
+              iframe.style.cssText = 'width:100%;height:100%;border:none;';
+              iframe.setAttribute('allowfullscreen', '');
+              iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
+              document.querySelector('.video-wrap').appendChild(iframe);
+            }
+            iframe.src = ch.url;
+            iframe.style.display = 'block';
+            currentStreamUrl = ch.url;
           };
           channelListEl.appendChild(div);
         });
