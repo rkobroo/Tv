@@ -713,16 +713,7 @@ floatIframe.onload = () => {
     
     async function floatPip() {
       if (currentFloatUrl) {
-        try {
-          if (document.pictureInPictureElement) {
-            await document.exitPictureInPicture();
-          } else {
-            await document.getElementById('floatIframe').requestPictureInPicture();
-          }
-        } catch(e) {
-          const pipWin = window.open(currentFloatUrl, 'pip', 'width=420,height=320,menubar=no,toolbar=no,location=no');
-          if (!pipWin) alert('Please allow popups for PiP');
-        }
+        window.open(currentFloatUrl, 'stream', 'width=420,height=320,menubar=no,toolbar=no,location=no');
       }
     }
     
