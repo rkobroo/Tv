@@ -411,6 +411,17 @@ let hls = null;
         iframe.onload = () => {
           try {
             const doc = iframe.contentDocument;
+            // Block ad redirects
+            doc.addEventListener('click', (e) => {
+              const tag = e.target.tagName;
+              if (tag === 'A' || tag === 'BUTTON') {
+                const href = e.target.href || e.target.closest('a')?.href;
+                if (href && (href.includes('ads') || href.includes('click') || href.includes('redirect'))) {
+                  e.preventDefault();
+                  e.stopImmediatePropagation();
+                }
+              }
+            }, true);
             // Hide common ad elements
             const adSelectors = [
               '.ads', '.ad', '[class*="ads-"]', '[id*="ads"]', 
@@ -736,6 +747,18 @@ let hls = null;
 floatIframe.onload = () => {
         try {
           const doc = floatIframe.contentDocument;
+          // Block ad redirects - intercept link clicks
+          doc.addEventListener('click', (e) => {
+            const tag = e.target.tagName;
+            if (tag === 'A' || tag === 'BUTTON') {
+              const href = e.target.href || e.target.onclick;
+              if (href && (href.includes('ads') || href.includes('click') || href.includes('redirect'))) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            }
+          }, true);
+          // Hide common ad elements
           const adSelectors = [
             '.ads', '.ad', '[class*="ads-"]', '[id*="ads"]', 
             '[class*="banner"]', '[id*="banner"]',
