@@ -363,10 +363,11 @@ let cachedMatches = null;
       // Premium Channels - direct m3u8 with logos
       if (url === '__PREMIUM_CHANNELS__') {
         allChannels = [
-          { name: 'Star Sports 1', url: 'https://muc002.myturn1.top:8088/live/starsports01/playlist.m3u8?vidictid=205655122021&id=123144&pk=3d60b94959c80dd3cf5b6f5af43872e269d49a822a946636266a68fdbbdfe94c87c59009f5ea46a5da40fbfd71a86c01af3427f3222c1bb73dfaf6cb88dfeb49', group: '', logo: 'https://i.imgur.com/Js5Eg2V.png' },
-          { name: 'Willow TV', url: 'https://muc002.myturn1.top:8088/live/webcricwillow/playlist.m3u8?vidictid=205656343594&id=120375&pk=3d60b94959c80dd3cf5b6f5af43872e269d49a822a946636266a68fdbbdfe94c87c59009f5ea46a5da40fbfd71a86c01af3427f3222c1bb73dfaf6cb88dfeb49', group: '', logo: 'https://i.imgur.com/MzxqTMf.png' },
-          { name: 'Willow Hindi', url: 'https://muc002.myturn1.top:8088/live/webcrichindi/playlist.m3u8?vidictid=205659072689&id=119771&pk=3d60b94959c80dd3cf5b6f5af43872e269d49a822a946636266a68fdbbdfe94c87c59009f5ea46a5da40fbfd71a86c01af3427f3222c1bb73dfaf6cb88dfeb49', group: '', logo: 'https://i.imgur.com/eg7RgjP.png' },
-          { name: 'Sky Sports', url: 'https://muc002.myturn1.top:8088/live/webcricn04/playlist.m3u8?id=114607&pk=3d60b94959c80dd3cf5b6f5af43872e269d49a822a946636266a68fdbbdfe94c87c59009f5ea46a5da40fbfd71a86c01af3427f3222c1bb73dfaf6cb88dfeb49', group: '', logo: 'https://i.imgur.com/pTWblYk.png' }
+          { name: 'Himal TV', url: 'https://muc001.myturn1.top:8088/live/webcricn04/media_859.ts?vidictid=205675682163&id=114607&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a', group: 'Nepal', logo: '🇳🇵' },
+          { name: 'Star Sports 1', url: 'https://muc002.myturn1.top:8088/live/starsports01/playlist.m3u8?vidictid=205655122021&id=123144&pk=3d60b94959c80dd3cf5b6f5af43872e269d49a822a946636266a68fdbbdfe94c87c59009f5ea46a5da40fbfd71a86c01af3427f3222c1bb73dfaf6cb88dfeb49', group: 'Sports', logo: 'https://i.imgur.com/Js5Eg2V.png' },
+          { name: 'Willow TV', url: 'https://muc002.myturn1.top:8088/live/webcricwillow/playlist.m3u8?vidictid=205656343594&id=120375&pk=3d60b94959c80dd3cf5b6f5af43872e269d49a822a946636266a68fdbbdfe94c87c59009f5ea46a5da40fbfd71a86c01af3427f3222c1bb73dfaf6cb88dfeb49', group: 'Sports', logo: 'https://i.imgur.com/MzxqTMf.png' },
+          { name: 'Willow Hindi', url: 'https://muc002.myturn1.top:8088/live/webcrichindi/playlist.m3u8?vidictid=205659072689&id=119771&pk=3d60b94959c80dd3cf5b6f5af43872e269d49a822a946636266a68fdbbdfe94c87c59009f5ea46a5da40fbfd71a86c01af3427f3222c1bb73dfaf6cb88dfeb49', group: 'Sports', logo: 'https://i.imgur.com/eg7RgjP.png' },
+          { name: 'Sky Sports', url: 'https://muc002.myturn1.top:8088/live/webcricn04/playlist.m3u8?id=114607&pk=3d60b94959c80dd3cf5b6f5af43872e269d49a822a946636266a68fdbbdfe94c87c59009f5ea46a5da40fbfd71a86c01af3427f3222c1bb73dfaf6cb88dfeb49', group: 'Sports', logo: 'https://i.imgur.com/pTWblYk.png' }
         ];
         renderChannels();
         return;
@@ -594,6 +595,18 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
           iframe.src = ch.url;
           iframe.style.display = 'block';
         }
+      } else if (ch.url.includes('.ts') || ch.url.includes('/live/') && ch.url.includes('?')) {
+        // Transport Stream or direct live URL - use iframe
+        player.style.display = 'none';
+        if (!iframe) {
+          iframe = document.createElement('iframe');
+          iframe.id = 'yonoFrame';
+          iframe.style.cssText = 'width:100%;height:100%;border:none;';
+          iframe.setAttribute('allowfullscreen', '');
+          document.querySelector('.video-wrap').appendChild(iframe);
+        }
+        iframe.src = ch.url;
+        iframe.style.display = 'block';
       } else {
         // MP4 or other - use video tag
         player.src = ch.url;
