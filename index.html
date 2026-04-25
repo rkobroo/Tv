@@ -362,11 +362,12 @@ let cachedMatches = null;
       
       // Premium Channels - direct m3u8 with logos
       if (url === '__PREMIUM_CHANNELS__') {
-        allChannels = [
-          { name: 'Willow Hindi', url: 'https://plu002.myturn1.top:8088/live/webcrichindi/playlist.m3u8?vidictid=205681203929&id=119771&pk=7ed1e1957fdffc9f5ef9118cc511967a1f0f57bd34843b23503c39912a2089cc4c27566267389f00877dd89d08e178927657c2044543f16f8a0513ea37404c00', group: 'Sports', logo: 'https://i.imgur.com/eg7RgjP.png' },
-          { name: 'Star Sports 1', url: 'https://plu002.myturn1.top:8088/live/starsports01/media_229.ts?vidictid=205683139827&id=123144&pk=7ed1e1957fdffc9f5ef9118cc511967a1f0f57bd34843b23503c39912a2089cc4c27566267389f00877dd89d08e178927657c2044543f16f8a0513ea37404c00', group: 'Sports', logo: 'https://i.imgur.com/Js5Eg2V.png' },
-          { name: 'Willow TV', url: 'https://plu001.myturn1.top:8088/live/webcricwillow/media_1116.ts?vidictid=205686942132&id=120375&pk=7ed1e1957fdffc9f5ef9118cc511967a1f0f57bd34843b23503c39912a2089cc4c27566267389f00877dd89d08e178927657c2044543f16f8a0513ea37404c00', group: 'Sports', logo: 'https://i.imgur.com/MzxqTMf.png' },
-          { name: 'Sky Sports', url: 'https://plu001.myturn1.top:8088/live/webcricsky/playlist.m3u8?vidictid=205681432944&id=121345&pk=7ed1e1957fdffc9f5ef9118cc511967a1f0f57bd34843b23503c39912a2089cc4c27566267389f00877dd89d08e178927657c2044543f16f8a0513ea37404c00', group: 'Sports', logo: 'https://i.imgur.com/pTWblYk.png' }
+allChannels = [
+          { name: 'HD IPL', url: 'https://a51.azplay31.me/hls/streama258584/index.m3u8?cst=c0e27492c6a65b2e5c11bc22abc6ffd2', group: 'Sports', logo: '🏏' },
+          { name: 'Willow Hindi', url: 'https://plu002.myturn1.top:8088/live/webcrichindi/media_14273.ts?vidictid=205676518129&id=119771&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a', group: 'Sports', logo: 'https://i.imgur.com/eg7RgjP.png' },
+          { name: 'Star Sports 1', url: 'https://plu001.myturn1.top:8088/live/starsports01/playlist.m3u8?vidictid=205678693693&id=123144&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a', group: 'Sports', logo: 'https://i.imgur.com/Js5Eg2V.png' },
+          { name: 'Willow TV', url: 'https://plu002.myturn1.top:8088/live/webcricwillow/playlist.m3u8?vidictid=205674383221&id=120375&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a', group: 'Sports', logo: 'https://i.imgur.com/MzxqTMf.png' },
+          { name: 'Sky Sports', url: 'https://muc001.myturn1.top:8088/live/webcricn04/media_859.ts?vidictid=205675682163&id=114607&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a', group: 'Sports', logo: 'https://i.imgur.com/pTWblYk.png' }
         ];
         renderChannels();
         return;
@@ -730,9 +731,9 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       document.getElementById('presetSelect').value = '__PREMIUM_CHANNELS__';
       loadPreset();
       setTimeout(() => {
-        const starSports1 = allChannels.find(ch => ch.name === 'Star Sports 1');
-        if (starSports1) {
-          playChannel(starSports1);
+        const hdIpl = allChannels.find(ch => ch.name === 'HD IPL');
+        if (hdIpl) {
+          playChannel(hdIpl);
         }
       }, 1000);
     });
