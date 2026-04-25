@@ -725,6 +725,17 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
     });
 
     // Auto-load default playlist
+    // Automatically select Premium Channels and play Star Sports 1 on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('presetSelect').value = '__PREMIUM_CHANNELS__';
+      loadPreset();
+      setTimeout(() => {
+        const starSports1 = allChannels.find(ch => ch.name === 'Star Sports 1');
+        if (starSports1) {
+          playChannel(starSports1);
+        }
+      }, 1000);
+    });
     loadPlaylist();
     
     // Floating Player Functions
