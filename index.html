@@ -549,6 +549,7 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
         div.appendChild(logoDiv);
         div.appendChild(infoDiv);
         div.onclick = () => playChannel(ch);
+         div.onmouseenter = () => prefetchChannel(ch);
         channelListEl.appendChild(div);
       });
     }
@@ -560,6 +561,30 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
 
 // Play channel - fast switch with multiple URLs
     let urlIndex = 0;
+    let prefetchedUrls = {};
+    let prefetchPlayer = null;
+    let prefetchHls = null;
+    
+    function prefetchChannel(ch) {
+      const urls = ch.urls || [ch.url, ch.fallback].filter(Boolean);
+      urls.forEach((url, i) => {
+        if (url.includes('.m3u8') && typeof Hls !== 'undefined' && Hls.isSupported()) {
+          if (prefetchHls) prefetchHls.destroy();
+          if (!prefetchPlayer) {
+            prefetchPlayer = document.createElement('video');
+            prefetchPlayer.muted = true;
+            prefetchPlayer.style.display = 'none';
+            document.querySelector('.video-wrap').appendChild(prefetchPlayer);
+          }
+          prefetchHls = new Hls({fragLoadingMaxRetry: 1, manifestLoadingMaxRetry: 1});
+          prefetchHls.loadSource(url);
+          prefetchHls.attachMedia(prefetchPlayer);
+          prefetchedUrls[url] = true;
+        } else if (!prefetchedUrls[url]) {
+          prefetchedUrls[url] = true;
+        }
+      });
+    }
     
     function playChannel(ch, newUrlIndex) {
       currentChannel = ch;
@@ -581,26 +606,34 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       
       nowPlayingEl.innerHTML = `Playing: ${ch.name}${label} <button onclick="enterPiP()" style="background:#4a9eff;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:10px;">🎬 PiP</button>${switchBtns}`;
       
-      // Destroy previous hls
+      // Fast cleanup - stop any current loading
       if (hls) {
+        hls.stopLoad();
         hls.destroy();
         hls = null;
       }
       player.pause();
-      player.src = '';
+      player.removeAttribute('src');
+      player.load();
       
-      // Hide iframe, show video player
+      // Handle iframe
       let iframe = document.getElementById('yonoFrame');
-      if (iframe) iframe.style.display = 'none';
+      if (iframe) {
+        iframe.src = 'about:blank';
+        iframe.style.display = 'none';
+      }
       player.style.display = 'block';
       
-      // Get all URLs for this channel
       const allUrls = urls;
       
       // Check if HLS.js is needed
       if (url.includes('.m3u8')) {
         if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-          hls = new Hls();
+          hls = new Hls({
+            fragLoadingMaxRetry: 2,
+            manifestLoadingMaxRetry: 2,
+            startFragPrefetch: true
+          });
           hls.loadSource(url);
           hls.attachMedia(player);
           hls.on(Hls.Events.ERROR, function(event, data) {
@@ -627,7 +660,7 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
           iframe.src = url;
           iframe.style.display = 'block';
         }
-      } else if (url.includes('.ts') || url.includes('/live/') && url.includes('?')) {
+      } else if (url.includes('.ts') || (url.includes('/live/') && url.includes('?'))) {
         player.style.display = 'none';
         if (!iframe) {
           iframe = document.createElement('iframe');
@@ -636,13 +669,7 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
           iframe.setAttribute('allowfullscreen', '');
           document.querySelector('.video-wrap').appendChild(iframe);
         }
-        iframe.onerror = () => {
-          if (urlIndex < allUrls.length - 1) {
-            urlIndex++;
-            playChannel(ch);
-          }
-        };
-iframe.src = url;
+        iframe.src = url;
         iframe.style.display = 'block';
       } else {
         player.src = url;
