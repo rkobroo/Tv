@@ -563,7 +563,7 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
     
     function playChannel(ch, newUrlIndex) {
       currentChannel = ch;
-      urlIndex = newUrlIndex;
+      urlIndex = (newUrlIndex !== undefined && newUrlIndex !== null) ? newUrlIndex : 0;
       
       // Support both single url/fallback and array of urls
       const urls = ch.urls || [ch.url, ch.fallback].filter(Boolean);
@@ -595,8 +595,7 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       player.style.display = 'block';
       
       // Get all URLs for this channel
-      const allUrls = ch.urls || [ch.url, ch.fallback].filter(Boolean);
-      const url = allUrls[urlIndex];
+      const allUrls = urls;
       
       // Check if HLS.js is needed
       if (url.includes('.m3u8')) {
