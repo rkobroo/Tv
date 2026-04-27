@@ -560,12 +560,13 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
 
 // Play channel - fast switch with multiple URLs
     let urlIndex = 0;
-    function playChannel(ch, newUrlIndex = null) {
+    
+    function playChannel(ch, newUrlIndex) {
       currentChannel = ch;
+      urlIndex = newUrlIndex;
       
       // Support both single url/fallback and array of urls
       const urls = ch.urls || [ch.url, ch.fallback].filter(Boolean);
-      if (newUrlIndex !== null) urlIndex = newUrlIndex;
       
       if (urlIndex >= urls.length) {
         nowPlayingEl.innerHTML = `❌ All streams failed for: ${ch.name}`;
@@ -595,13 +596,13 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       
       // Get all URLs for this channel
       const allUrls = ch.urls || [ch.url, ch.fallback].filter(Boolean);
-      const currentUrl = allUrls[urlIndex];
+      const url = allUrls[urlIndex];
       
       // Check if HLS.js is needed
-      if (currentUrl.includes('.m3u8')) {
+      if (url.includes('.m3u8')) {
         if (typeof Hls !== 'undefined' && Hls.isSupported()) {
           hls = new Hls();
-          hls.loadSource(currentUrl);
+          hls.loadSource(url);
           hls.attachMedia(player);
           hls.on(Hls.Events.ERROR, function(event, data) {
             if (data.fatal && urlIndex < allUrls.length - 1) {
@@ -624,10 +625,10 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
             iframe.setAttribute('allowfullscreen', '');
             document.querySelector('.video-wrap').appendChild(iframe);
           }
-          iframe.src = currentUrl;
+          iframe.src = url;
           iframe.style.display = 'block';
         }
-      } else if (currentUrl.includes('.ts') || currentUrl.includes('/live/') && currentUrl.includes('?')) {
+      } else if (url.includes('.ts') || url.includes('/live/') && url.includes('?')) {
         player.style.display = 'none';
         if (!iframe) {
           iframe = document.createElement('iframe');
@@ -642,10 +643,10 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
             playChannel(ch);
           }
         };
-iframe.src = currentUrl;
+iframe.src = url;
         iframe.style.display = 'block';
       } else {
-        player.src = currentUrl;
+        player.src = url;
         player.play().catch(() => {
           if (urlIndex < allUrls.length - 1) {
             urlIndex++;
