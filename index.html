@@ -558,16 +558,27 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       return url;
     }
 
-// Play channel - fast switch with fallback
-    function playChannel(ch, tryFallback = false) {
+// Play channel - fast switch with multiple URLs
+    let urlIndex = 0;
+    function playChannel(ch, newUrlIndex = null) {
       currentChannel = ch;
       
-      // Use fallback URL if main failed
-      const url = tryFallback && ch.fallback ? ch.fallback : ch.url;
-      const label = tryFallback && ch.fallback ? ' (Backup)' : '';
-      const switchBtn = ch.fallback ? `<button onclick="playChannel(currentChannel, ${!tryFallback})" style="background:#ff6600;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:10px;">🔄 Switch</button>` : '';
+      // Support both single url/fallback and array of urls
+      const urls = ch.urls || [ch.url, ch.fallback].filter(Boolean);
+      if (newUrlIndex !== null) urlIndex = newUrlIndex;
       
-      nowPlayingEl.innerHTML = `Playing: ${ch.name}${label} <button onclick="enterPiP()" style="background:#4a9eff;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:10px;">🎬 PiP</button>${switchBtn}`;
+      if (urlIndex >= urls.length) {
+        nowPlayingEl.innerHTML = `❌ All streams failed for: ${ch.name}`;
+        return;
+      }
+      
+      const url = urls[urlIndex];
+      const label = urlIndex > 0 ? ` (URL ${urlIndex + 1})` : '';
+      const switchBtns = urls.length > 1 ? urls.map((u, i) => 
+        `<button onclick="playChannel(currentChannel, ${i})" style="background:${i === urlIndex ? '#4a9eff' : '#666'};border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:5px;">${i + 1}</button>`
+      ).join('') : '';
+      
+      nowPlayingEl.innerHTML = `Playing: ${ch.name}${label} <button onclick="enterPiP()" style="background:#4a9eff;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:10px;">🎬 PiP</button>${switchBtns}`;
       
       // Destroy previous hls
       if (hls) {
@@ -582,23 +593,26 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       if (iframe) iframe.style.display = 'none';
       player.style.display = 'block';
       
+      // Get all URLs for this channel
+      const allUrls = ch.urls || [ch.url, ch.fallback].filter(Boolean);
+      const currentUrl = allUrls[urlIndex];
+      
       // Check if HLS.js is needed
-      if (url.includes('.m3u8')) {
+      if (currentUrl.includes('.m3u8')) {
         if (typeof Hls !== 'undefined' && Hls.isSupported()) {
           hls = new Hls();
-          hls.loadSource(url);
+          hls.loadSource(currentUrl);
           hls.attachMedia(player);
           hls.on(Hls.Events.ERROR, function(event, data) {
-            if (data.fatal) {
-              // Try fallback
-              if (ch.fallback && !tryFallback) {
-                playChannel(ch, true);
-              }
+            if (data.fatal && urlIndex < allUrls.length - 1) {
+              urlIndex++;
+              playChannel(ch);
             }
           });
           player.play().catch(() => {
-            if (ch.fallback && !tryFallback) {
-              playChannel(ch, true);
+            if (urlIndex < allUrls.length - 1) {
+              urlIndex++;
+              playChannel(ch);
             }
           });
         } else {
@@ -610,10 +624,10 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
             iframe.setAttribute('allowfullscreen', '');
             document.querySelector('.video-wrap').appendChild(iframe);
           }
-          iframe.src = url;
+          iframe.src = currentUrl;
           iframe.style.display = 'block';
         }
-      } else if (url.includes('.ts') || url.includes('/live/') && url.includes('?')) {
+      } else if (currentUrl.includes('.ts') || currentUrl.includes('/live/') && currentUrl.includes('?')) {
         player.style.display = 'none';
         if (!iframe) {
           iframe = document.createElement('iframe');
@@ -623,20 +637,23 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
           document.querySelector('.video-wrap').appendChild(iframe);
         }
         iframe.onerror = () => {
-          if (ch.fallback && !tryFallback) {
-            playChannel(ch, true);
+          if (urlIndex < allUrls.length - 1) {
+            urlIndex++;
+            playChannel(ch);
           }
         };
-        iframe.src = url;
+        iframe.src = currentUrl;
         iframe.style.display = 'block';
       } else {
-        player.src = url;
+        player.src = currentUrl;
         player.play().catch(() => {
-          if (ch.fallback && !tryFallback) {
-            playChannel(ch, true);
+if (urlIndex < allUrls.length - 1) {
+            urlIndex++;
+            playChannel(ch);
           }
         });
-}
+      }
+      }
     }
     
 // Picture-in-Picture
