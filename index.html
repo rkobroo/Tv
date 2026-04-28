@@ -567,9 +567,9 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       const urls = ch.urls || [ch.url, ch.fallback].filter(Boolean);
       if (newUrlIndex !== null) urlIndex = newUrlIndex;
       
+      // Loop back to first URL if all failed
       if (urlIndex >= urls.length) {
-        nowPlayingEl.innerHTML = `❌ All failed: ${ch.name} <button onclick="retryChannel()" style="background:#e67e22;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:10px;">🔄 Retry All</button>`;
-        return;
+        urlIndex = 0;
       }
       
       const url = urls[urlIndex];
