@@ -260,6 +260,25 @@
     let allChannels = [];
     let currentChannel = null;
 let hls = null;
+    let prefetchHls = null;
+    let prefetchPlayer = null;
+    
+    // Prefetch URL for faster load
+    function prefetchUrl(url) {
+      if (url && url.includes('.m3u8') && typeof Hls !== 'undefined') {
+        if (!prefetchPlayer) {
+          prefetchPlayer = document.createElement('video');
+          prefetchPlayer.muted = true;
+          prefetchPlayer.style.display = 'none';
+          document.body.appendChild(prefetchPlayer);
+        }
+        if (prefetchHls) prefetchHls.destroy();
+        prefetchHls = new Hls({fragLoadingMaxRetry: 1, manifestLoadingMaxRetry: 1});
+        prefetchHls.loadSource(url);
+        prefetchHls.attachMedia(prefetchPlayer);
+      }
+    }
+    
     let activeCategory = 'all';
     let isLiveMatchesMode = false;
 let cachedMatches = null;
@@ -549,6 +568,17 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
         div.appendChild(logoDiv);
         div.appendChild(infoDiv);
         div.onclick = () => playChannel(ch);
+        // Prefetch on hover (300ms delay)
+        let hoverTimer;
+        div.onmouseenter = () => {
+          clearTimeout(hoverTimer);
+          hoverTimer = setTimeout(() => {
+            if (ch.urls || ch.url) {
+              prefetchUrl(ch.urls ? ch.urls[0] : ch.url);
+            }
+          }, 300);
+        };
+        div.onmouseleave = () => clearTimeout(hoverTimer);
         channelListEl.appendChild(div);
       });
     }
@@ -580,17 +610,15 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       
       nowPlayingEl.innerHTML = `Playing: ${ch.name}${label} <button onclick="togglePiP()" style="background:#4a9eff;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:10px;">PiP</button>${switchBtns} <button onclick="toggleMiniPlayer()" style="background:#666;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:5px;">Mini</button>`;
       
-      // Destroy previous hls
-      if (hls) {
-        hls.destroy();
-        hls = null;
-      }
+      // Fast cleanup
+      if (hls) { hls.stopLoad(); hls.destroy(); hls = null; }
       player.pause();
-      player.src = '';
+      player.removeAttribute('src');
+      player.load();
       
-      // Hide iframe, show video player
+      // Hide iframe
       let iframe = document.getElementById('yonoFrame');
-      if (iframe) iframe.style.display = 'none';
+      if (iframe) { iframe.src = 'about:blank'; iframe.style.display = 'none'; }
       player.style.display = 'block';
       
       // Get all URLs for this channel
@@ -600,7 +628,15 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       // Check if HLS.js is needed
       if (currentUrl.includes('.m3u8')) {
         if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-          hls = new Hls();
+          // Fast load: destroy old, create new with optimized config
+          if (hls) { hls.destroy(); hls = null; }
+          hls = new Hls({
+            fragLoadingMaxRetry: 1,
+            manifestLoadingMaxRetry: 1,
+            startFragPrefetch: true,
+            lowLatencyMode: false,
+            backBufferLength: 30
+          });
           hls.loadSource(currentUrl);
           hls.attachMedia(player);
           hls.on(Hls.Events.ERROR, function(event, data) {
