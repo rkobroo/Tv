@@ -604,16 +604,14 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
           hls.loadSource(currentUrl);
           hls.attachMedia(player);
           hls.on(Hls.Events.ERROR, function(event, data) {
-            if (data.fatal && urlIndex < allUrls.length - 1) {
+            if (data.fatal) {
               urlIndex++;
               playChannel(ch);
             }
           });
           player.play().catch(() => {
-            if (urlIndex < allUrls.length - 1) {
-              urlIndex++;
-              playChannel(ch);
-            }
+            urlIndex++;
+            playChannel(ch);
           });
         } else {
           player.style.display = 'none';
@@ -637,20 +635,16 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
           document.querySelector('.video-wrap').appendChild(iframe);
         }
         iframe.onerror = () => {
-          if (urlIndex < allUrls.length - 1) {
-            urlIndex++;
-            playChannel(ch);
-          }
+          urlIndex++;
+          playChannel(ch);
         };
-iframe.src = currentUrl;
+        iframe.src = currentUrl;
         iframe.style.display = 'block';
       } else {
         player.src = currentUrl;
         player.play().catch(() => {
-          if (urlIndex < allUrls.length - 1) {
-            urlIndex++;
-            playChannel(ch);
-          }
+          urlIndex++;
+          playChannel(ch);
         });
       }
     }
