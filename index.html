@@ -239,8 +239,8 @@
           if (!iframe) {
             iframe = document.createElement('iframe');
             iframe.id = 'yonoFrame';
-            iframe.style.cssText = 'width:100vw;height:100vh;position:fixed;top:0;left:0;border:none;z-index:9999;';
-            document.body.appendChild(iframe);
+            iframe.style.cssText = 'width:100%;height:100%;border:none;';
+            document.querySelector('.video-wrap').appendChild(iframe);
           }
           player.style.display = 'none';
           iframe.style.display = 'block';
@@ -332,13 +332,13 @@ let cachedMatches = null;
       // Also show in iframe
       player.style.display = 'none';
       let iframe = document.getElementById('yonoFrame');
-      if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.id = 'yonoFrame';
-        iframe.style.cssText = 'width:100vw;height:100vh;position:fixed;top:0;left:0;border:none;z-index:9999;';
-        iframe.setAttribute('allowfullscreen', '');
-        document.body.appendChild(iframe);
-      }
+if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'yonoFrame';
+            iframe.style.cssText = 'width:100%;height:100%;border:none;';
+            iframe.setAttribute('allowfullscreen', '');
+            document.querySelector('.video-wrap').appendChild(iframe);
+          }
       iframe.src = matchUrl;
       iframe.style.display = 'block';
     }
@@ -409,10 +409,10 @@ player.style.display = 'none';
       if (!iframe) {
         iframe = document.createElement('iframe');
         iframe.id = 'yonoFrame';
-        iframe.style.cssText = 'width:100vw;height:100vh;position:fixed;top:0;left:0;border:none;z-index:9999;';
+        iframe.style.cssText = 'width:100%;height:100%;border:none;';
         iframe.setAttribute('allowfullscreen', '');
         iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
-        document.body.appendChild(iframe);
+        document.querySelector('.video-wrap').appendChild(iframe);
         
         // Try to remove ads after load
         iframe.onload = () => {
@@ -653,24 +653,12 @@ player.style.display = 'none';
           });
         } else {
           player.style.display = 'none';
-          if (!iframe) {
-            iframe = document.createElement('iframe');
-            iframe.id = 'yonoFrame';
-            iframe.style.cssText = 'width:100vw;height:100vh;position:fixed;top:0;left:0;border:none;z-index:9999;';
-            iframe.setAttribute('allowfullscreen', '');
-            document.body.appendChild(iframe);
-          }
-          iframe.src = currentUrl;
-          iframe.style.display = 'block';
-        }
-      } else if (currentUrl.includes('.ts') || currentUrl.includes('/live/') && currentUrl.includes('?')) {
-        player.style.display = 'none';
-        if (!iframe) {
+if (!iframe) {
           iframe = document.createElement('iframe');
           iframe.id = 'yonoFrame';
-          iframe.style.cssText = 'width:100vw;height:100vh;position:fixed;top:0;left:0;border:none;z-index:9999;';
+          iframe.style.cssText = 'width:100%;height:100%;border:none;';
           iframe.setAttribute('allowfullscreen', '');
-          document.body.appendChild(iframe);
+          document.querySelector('.video-wrap').appendChild(iframe);
         }
         iframe.onerror = () => {
           if (urlIndex < allUrls.length - 1) {
