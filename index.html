@@ -568,7 +568,7 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       if (newUrlIndex !== null) urlIndex = newUrlIndex;
       
       if (urlIndex >= urls.length) {
-        nowPlayingEl.innerHTML = `❌ All streams failed for: ${ch.name}`;
+        nowPlayingEl.innerHTML = `❌ All failed: ${ch.name} <button onclick="retryChannel()" style="background:#e67e22;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:10px;">🔄 Retry All</button>`;
         return;
       }
       
@@ -678,6 +678,14 @@ iframe.src = currentUrl;
         videoWrap.style.cssText = 'position:fixed;bottom:20px;right:20px;width:320px;height:180px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.5);border-radius:12px;overflow:hidden;';
       } else {
         videoWrap.style.cssText = '';
+      }
+    }
+    
+    // Retry all URLs from start
+    function retryChannel() {
+      if (currentChannel) {
+        urlIndex = 0;
+        playChannel(currentChannel);
       }
     }
     
