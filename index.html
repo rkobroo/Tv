@@ -217,7 +217,13 @@
     const urlParams = new URLSearchParams(window.location.search);
     const streamUrl = urlParams.get('stream');
     
-    window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
+      // Show loading immediately
+      channelListEl.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading channels...</div>';
+      
+      // Small delay to let UI render
+      await new Promise(r => setTimeout(r, 50));
+      
       if (streamUrl) {
         // We're in popup - auto play the stream
         document.getElementById('floatPlayer').style.display = 'none';
@@ -242,13 +248,13 @@
             iframe.style.cssText = 'width:100%;height:100%;border:none;';
             document.querySelector('.video-wrap').appendChild(iframe);
           }
-          player.style.display = 'none';
-          iframe.style.display = 'block';
-          iframe.src = streamUrl;
         }
-        
-        document.getElementById('nowPlaying').textContent = 'Playing in Popup';
+
+        return;
       }
+      
+      // Load default or preset
+      try { init(); } catch(e) { console.error(e); }
     });
     
     const player = document.getElementById('player');
@@ -549,7 +555,11 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
         div.appendChild(logoDiv);
         div.appendChild(infoDiv);
         div.onclick = () => playChannel(ch);
-         div.onmouseenter = () => prefetchChannel(ch);
+        let hoverTimeout;
+        div.onmouseenter = () => {
+          clearTimeout(hoverTimeout);
+          hoverTimeout = setTimeout(() => prefetchChannel(ch), 300);
+        };
         channelListEl.appendChild(div);
       });
     }
@@ -855,8 +865,12 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       }
     }
 
-    // Events
-    searchInput.addEventListener('input', renderChannels);
+    // Debounced search
+    let searchTimeout;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(renderChannels, 150);
+    });
     
     playlistUrlInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') loadPlaylist();
