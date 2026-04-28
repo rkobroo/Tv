@@ -364,11 +364,11 @@ let cachedMatches = null;
       if (url === '__PREMIUM_CHANNELS__') {
         allChannels = [
           { name: 'HD IPL', url: 'https://a51.azplay31.me/hls/streama258584/index.m3u8?cst=c0e27492c6a65b2e5c11bc22abc6ffd2', group: 'Sports', logo: '🏏' },
-          { name: 'Willow Hindi', urls: ['https://plu002.myturn1.top:8088/live/webcrichindi/playlist.m3u8?vidictid=205718619788&id=119771&pk=ab6dd2606245447c89e8f769b4ba9625bc4e041853821d8427bb2433b82258edde73e224004d64d13343cf9a37cd2f17440d34a6a3431b3666b0244a785686e6', 'https://trl01.pctrls.nl/procricket/amlst:stream_2_b550000/chunklist.m3u8?vidictid=595316108654429&id=2&pk=A176AC038E6D9260C16B311E201548074E6543671DA51452B1A37FB18519AAA2&userId=de067d4b-60bf-4ec7-bb98-97b8cc6f69f5&sk=7rXtRl6Di2CAMu9Cv4IB2g%3D%3D', 'https://plu002.myturn1.top:8088/live/webcrichindi/media_14273.ts?vidictid=205676518129&id=119771&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a'], group: 'Sports', logo: 'https://i.imgur.com/eg7RgjP.png' },
+          { name: 'Willow Hindi', url: 'https://trl01.pctrls.nl/procricket/amlst:stream_2_b550000/chunklist.m3u8?vidictid=595316108654429&id=2&pk=A176AC038E6D9260C16B311E201548074E6543671DA51452B1A37FB18519AAA2&userId=de067d4b-60bf-4ec7-bb98-97b8cc6f69f5&sk=7rXtRl6Di2CAMu9Cv4IB2g%3D%3D', fallback: 'https://plu002.myturn1.top:8088/live/webcrichindi/media_14273.ts?vidictid=205676518129&id=119771&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a', group: 'Sports', logo: 'https://i.imgur.com/eg7RgjP.png' },
           { name: 'Star Sports Hindi', url: 'https://trl01.pctrls.nl/procricket_b/amlst:stream_2b_b2050000/chunklist.m3u8?vidictid=874350676714619&id=12&pk=A176AC038E6D9260C16B311E201548074E6543671DA51452B1A37FB18519AAA2&userId=de067d4b-60bf-4ec7-bb98-97b8cc6f69f5&sk=gTCfrkDelIHWD4tsa82r3Q%3D%3D', fallback: 'https://plu001.myturn1.top:8088/live/starsports01/playlist.m3u8?vidictid=205678693693&id=123144&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a', group: 'Sports', logo: 'https://i.imgur.com/Js5Eg2V.png' },
           { name: 'Star Sports 1', url: 'https://plu001.myturn1.top:8088/live/starsports01/playlist.m3u8?vidictid=205678693693&id=123144&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a', group: 'Sports', logo: 'https://i.imgur.com/Js5Eg2V.png' },
           { name: 'Willow TV', url: 'https://plu002.myturn1.top:8088/live/webcricn02/playlist.m3u8?vidictid=205702692596&id=115656&pk=d7d71624bbb8fe06530cb7b7f4763611da5e4267b60d553d7d7a10af44bf4e2cc9e3decb932bf3815fa230e92e2631e5eff378f257476de67451dc5397b9b942', fallback: 'https://plu002.myturn1.top:8088/live/webcricwillow/playlist.m3u8?vidictid=205674383221&id=120375&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a', group: 'Sports', logo: 'https://i.imgur.com/MzxqTMf.png' },
-          { name: 'Sky Sports', urls: ['https://plu002.myturn1.top:8088/live/webcricsky/playlist.m3u8?vidictid=205713757653&id=121345&pk=ab6dd2606245447c89e8f769b4ba9625bc4e041853821d8427bb2433b82258edde73e224004d64d13343cf9a37cd2f17440d34a6a3431b3666b0244a785686e6', 'https://muc002.myturn1.top:8088/live/webcricsky/playlist.m3u8?vidictid=205706406274&id=121345&pk=d7d71624bbb8fe06530cb7b7f4763611da5e4267b60d553d7d7a10af44bf4e2cc9e3decb932bf3815fa230e92e2631e5eff378f257476de67451dc5397b9b942', 'https://plu001.myturn1.top:8088/live/webcricn04/playlist.m3u8?id=114607&pk=3d60b94959c80dd3cf5b6f5af43872e269d49a822a946636266a68fdbbdfe94c87c59009f5ea46a5da40fbfd71a86c01af3427f3222c1bb73dfaf6cb88dfeb49'], group: 'Sports', logo: 'https://i.imgur.com/pTWblYk.png' }
+          { name: 'Sky Sports', url: 'https://muc002.myturn1.top:8088/live/webcricsky/playlist.m3u8?vidictid=205706406274&id=121345&pk=d7d71624bbb8fe06530cb7b7f4763611da5e4267b60d553d7d7a10af44bf4e2cc9e3decb932bf3815fa230e92e2631e5eff378f257476de67451dc5397b9b942', fallback: 'https://plu001.myturn1.top:8088/live/webcricn04/playlist.m3u8?id=114607&pk=3d60b94959c80dd3cf5b6f5af43872e269d49a822a946636266a68fdbbdfe94c87c59009f5ea46a5da40fbfd71a86c01af3427f3222c1bb73dfaf6cb88dfeb49', group: 'Sports', logo: 'https://i.imgur.com/pTWblYk.png' }
         ];
         renderChannels();
         return;
@@ -567,9 +567,9 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       const urls = ch.urls || [ch.url, ch.fallback].filter(Boolean);
       if (newUrlIndex !== null) urlIndex = newUrlIndex;
       
-      // Loop back to URL 1 if all failed
       if (urlIndex >= urls.length) {
-        urlIndex = 0;
+        nowPlayingEl.innerHTML = `❌ All streams failed for: ${ch.name}`;
+        return;
       }
       
       const url = urls[urlIndex];
@@ -604,14 +604,16 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
           hls.loadSource(currentUrl);
           hls.attachMedia(player);
           hls.on(Hls.Events.ERROR, function(event, data) {
-            if (data.fatal) {
+            if (data.fatal && urlIndex < allUrls.length - 1) {
               urlIndex++;
               playChannel(ch);
             }
           });
           player.play().catch(() => {
-            urlIndex++;
-            playChannel(ch);
+            if (urlIndex < allUrls.length - 1) {
+              urlIndex++;
+              playChannel(ch);
+            }
           });
         } else {
           player.style.display = 'none';
@@ -635,16 +637,20 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
           document.querySelector('.video-wrap').appendChild(iframe);
         }
         iframe.onerror = () => {
-          urlIndex++;
-          playChannel(ch);
+          if (urlIndex < allUrls.length - 1) {
+            urlIndex++;
+            playChannel(ch);
+          }
         };
-        iframe.src = currentUrl;
+iframe.src = currentUrl;
         iframe.style.display = 'block';
       } else {
         player.src = currentUrl;
         player.play().catch(() => {
-          urlIndex++;
-          playChannel(ch);
+          if (urlIndex < allUrls.length - 1) {
+            urlIndex++;
+            playChannel(ch);
+          }
         });
       }
     }
@@ -672,14 +678,6 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
         videoWrap.style.cssText = 'position:fixed;bottom:20px;right:20px;width:320px;height:180px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.5);border-radius:12px;overflow:hidden;';
       } else {
         videoWrap.style.cssText = '';
-      }
-    }
-    
-    // Retry all URLs from start
-    function retryChannel() {
-      if (currentChannel) {
-        urlIndex = 0;
-        playChannel(currentChannel);
       }
     }
     
