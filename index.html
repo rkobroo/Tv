@@ -77,9 +77,10 @@
     /* Floating Player */
     .float-player { position: fixed; bottom: 20px; right: 20px; z-index: 2147483647; background: #000; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); overflow: hidden; transition: all 0.3s ease; cursor: move; }
     .float-player.collapsed { width: 60px !important; height: 45px !important; }
-    .float-player.size-small { width: 200px; height: 150px; }
-    .float-player.size-medium { width: 420px; height: 320px; }
-    .float-player.size-large { width: 640px; height: 480px; }
+    .float-player.size-small { width: 320px; height: 240px; }
+    .float-player.size-medium { width: 640px; height: 400px; }
+    .float-player.size-large { width: 960px; height: 540px; }
+    .float-player.fullscreen { width: 100vw !important; height: 100vh !important; top: 0 !important; left: 0 !important; bottom: 0 !important; right: 0 !important; border-radius: 0; }
     .float-player iframe { width: 100%; height: 100%; border: none; }
     .float-controls { position: absolute; top: 0; left: 0; right: 0; height: 30px; background: rgba(0,0,0,0.7); display: flex; justify-content: space-between; align-items: center; padding: 0 8px; cursor: move; }
     .float-btn { background: none; border: none; color: #fff; font-size: 14px; cursor: pointer; padding: 4px 10px; min-width: 32px; }
@@ -117,6 +118,7 @@
   <div id="floatPlayer" class="float-player size-medium collapsed" style="display:none;">
     <div class="float-controls">
       <span class="float-title" id="floatTitle">Playing</span>
+      <button class="float-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
       <button class="float-btn" onclick="toggleFloatSize()">📐</button>
       <button class="float-btn" onclick="floatPip()" title="Picture-in-Picture">🎬</button>
       <button class="float-btn" onclick="minimizeFloat()">_</button>
@@ -889,6 +891,19 @@ floatIframe.onload = () => {
       floatTitle.textContent = title || 'Stream';
       floatPlayer.style.display = 'block';
       floatPlayer.classList.remove('collapsed');
+    }
+    
+    function toggleFullscreen() {
+      const floatPlayer = document.getElementById('floatPlayer');
+      if (floatPlayer.classList.contains('fullscreen')) {
+        floatPlayer.classList.remove('fullscreen');
+        floatPlayer.style.cssText = '';
+        floatPlayer.classList.add('size-medium');
+      } else {
+        floatPlayer.classList.remove('collapsed');
+        floatPlayer.classList.add('fullscreen');
+        floatPlayer.style.cssText = 'display:block;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;';
+      }
     }
     
     function closeFloat() {
