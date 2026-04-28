@@ -1,6 +1,6 @@
 ## Live Sports TV (Video.js + IPTV-org)
 
-A minimal web app that fetches and parses the `sports.m3u` playlist from `iptv-org/iptv` and lets you play HLS (`.m3u8`) live TV channels with Video.js.
+A minimal web app that fetche and parses the `sports.m3u` playlist from `iptv-org/iptv` and lets you play HLS (`.m3u8`) live TV channels with Video.js.
 
 - Source playlist: `https://raw.githubusercontent.com/iptv-org/iptv/main/categories/sports.m3u`
 - Player: Video.js (via CDN)
