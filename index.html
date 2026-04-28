@@ -253,8 +253,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       
-      // Load default or preset
-      try { init(); } catch(e) { console.error(e); }
+      // Load default source - Premium Channels
+      loadPreset();
     });
     
     const player = document.getElementById('player');
