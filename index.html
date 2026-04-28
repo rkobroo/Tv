@@ -126,7 +126,7 @@
   </div>
 
   <header>
-    <h1>IPTV Player <button onclick="showAdminPanel()" style="background:#666;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-size:12px;vertical-align:middle;margin-left:10px;">⚙️ Admin</button><button id="installBtn" onclick="installApp()" style="display:none;background:#4a9eff;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;vertical-align:middle;">📱 Install App</button></h1>
+    <h1>IPTV Player <button id="installBtn" onclick="installApp()" style="display:none;background:#4a9eff;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;vertical-align:middle;">📱 Install App</button></h1>
     <div class="input-row">
       <input type="text" class="url-input" id="playlistUrl" placeholder="Paste M3U/M3U8 playlist URL..." />
       <select id="presetSelect" onchange="loadPreset()" style="padding:10px;background:#333;color:#fff;border:1px solid #444;border-radius:6px;margin-right:5px;max-width:200px;">
@@ -381,12 +381,7 @@ let cachedMatches = null;
       
 // Premium Channels - direct m3u8 with logos
       if (url === '__PREMIUM_CHANNELS__') {
-        // Check for custom channels in localStorage
-        const custom = localStorage.getItem('customChannels');
-        if (custom) {
-          allChannels = JSON.parse(custom);
-        } else {
-          allChannels = [
+        allChannels = [
           { name: 'HD IPL', url: 'https://a51.azplay31.me/hls/streama258584/index.m3u8?cst=c0e27492c6a65b2e5c11bc22abc6ffd2', group: 'Sports', logo: '🏏' },
           { name: 'Willow Hindi', urls: ['https://plu002.myturn1.top:8088/live/webcrichindi/playlist.m3u8?vidictid=205718619788&id=119771&pk=ab6dd2606245447c89e8f769b4ba9625bc4e041853821d8427bb2433b82258edde73e224004d64d13343cf9a37cd2f17440d34a6a3431b3666b0244a785686e6', 'https://trl01.pctrls.nl/procricket/amlst:stream_2_b550000/chunklist.m3u8?vidictid=595316108654429&id=2&pk=A176AC038E6D9260C16B311E201548074E6543671DA51452B1A37FB18519AAA2&userId=de067d4b-60bf-4ec7-bb98-97b8cc6f69f5&sk=7rXtRl6Di2CAMu9Cv4IB2g%3D%3D', 'https://plu002.myturn1.top:8088/live/webcrichindi/media_14273.ts?vidictid=205676518129&id=119771&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a'], group: 'Sports', logo: 'https://i.imgur.com/eg7RgjP.png' },
           { name: 'Star Sports Hindi', url: 'https://trl01.pctrls.nl/procricket_b/amlst:stream_2b_b2050000/chunklist.m3u8?vidictid=874350676714619&id=12&pk=A176AC038E6D9260C16B311E201548074E6543671DA51452B1A37FB18519AAA2&userId=de067d4b-60bf-4ec7-bb98-97b8cc6f69f5&sk=gTCfrkDelIHWD4tsa82r3Q%3D%3D', fallback: 'https://plu001.myturn1.top:8088/live/starsports01/playlist.m3u8?vidictid=205678693693&id=123144&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a', group: 'Sports', logo: 'https://i.imgur.com/Js5Eg2V.png' },
@@ -941,73 +936,6 @@ floatIframe.onload = () => {
     
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(r => console.log('SW registered')).catch(e => console.log('SW error', e));
-    }
-    
-    // Admin Panel
-    function showAdminPanel() {
-      const modal = document.createElement('div');
-      modal.id = 'adminModal';
-      modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:10000;display:flex;align-items:center;justify-content:center;';
-      
-      // Load channels from localStorage or use default
-      let channels = JSON.parse(localStorage.getItem('customChannels') || 'null') || allChannels;
-      
-      let html = `<div style="background:#222;padding:20px;border-radius:12px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;">
-        <h2 style="margin-top:0;">⚙️ Admin Panel - Edit Channels</h2>
-        <button onclick="document.getElementById('adminModal').remove()" style="float:right;background:#e74c3c;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;">✕ Close</button>
-        <button onclick="resetToDefault()" style="background:#e67e22;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin-right:10px;">🔄 Reset Default</button>
-        <button onclick="saveChannels()" style="background:#27ae60;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;">💾 Save</button>
-        <hr style="border-color:#444;">
-        <div id="channelEditor"></div>
-      </div>`;
-      
-      modal.innerHTML = html;
-      document.body.appendChild(modal);
-      renderChannelEditor(channels);
-    }
-    
-    function renderChannelEditor(channels) {
-      const container = document.getElementById('channelEditor');
-      container.innerHTML = channels.map((ch, i) => `
-        <div style="background:#333;padding:12px;margin:8px 0;border-radius:8px;">
-          <input type="text" value="${ch.name}" onchange="updateChannel(${i}, 'name', this.value)" style="background:#222;color:#fff;border:1px solid #555;padding:6px;border-radius:4px;width:40%;">
-          <input type="text" value="${(ch.urls ? ch.urls[0] : ch.url || '')}" onchange="updateChannelUrl(${i}, 0, this.value)" style="background:#222;color:#fff;border:1px solid #555;padding:6px;border-radius:4px;width:55%;">
-          ${ch.urls && ch.urls.length > 1 ? `<br><input type="text" value="${ch.urls[1] || ''}" onchange="updateChannelUrl(${i}, 1, this.value)" style="background:#222;color:#888;border:1px solid #555;padding:6px;border-radius:4px;width:55%;margin-top:4px;">` : ''}
-          <button onclick="deleteChannel(${i})" style="background:#e74c3c;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;float:right;">🗑️</button>
-        </div>
-      `).join('');
-    }
-    
-    function updateChannel(idx, field, value) {
-      let channels = JSON.parse(localStorage.getItem('customChannels') || 'null') || allChannels;
-      channels[idx][field] = value;
-      renderChannelEditor(channels);
-    }
-    
-    function updateChannelUrl(idx, urlIdx, value) {
-      let channels = JSON.parse(localStorage.getItem('customChannels') || 'null') || allChannels;
-      if (!channels[idx].urls) channels[idx].urls = [channels[idx].url, channels[idx].fallback].filter(Boolean);
-      channels[idx].urls[urlIdx] = value;
-      renderChannelEditor(channels);
-    }
-    
-    function deleteChannel(idx) {
-      let channels = JSON.parse(localStorage.getItem('customChannels') || 'null') || allChannels;
-      channels.splice(idx, 1);
-      renderChannelEditor(channels);
-    }
-    
-    function saveChannels() {
-      const channels = JSON.parse(localStorage.getItem('customChannels') || 'null') || allChannels;
-      localStorage.setItem('customChannels', JSON.stringify(channels));
-      alert('Saved! Reload page to see changes.');
-    }
-    
-    function resetToDefault() {
-      if (confirm('Reset all channels to default?')) {
-        localStorage.removeItem('customChannels');
-        alert('Reset! Reload page.');
-      }
     }
   </script>
 </body>
