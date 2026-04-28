@@ -567,9 +567,9 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       const urls = ch.urls || [ch.url, ch.fallback].filter(Boolean);
       if (newUrlIndex !== null) urlIndex = newUrlIndex;
       
-      // Loop back to first URL if all failed
       if (urlIndex >= urls.length) {
-        urlIndex = 0;
+        nowPlayingEl.innerHTML = `❌ All failed: ${ch.name} <button onclick="retryChannel()" style="background:#e67e22;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:10px;">🔄 Retry All</button>`;
+        return;
       }
       
       const url = urls[urlIndex];
@@ -604,14 +604,16 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
           hls.loadSource(currentUrl);
           hls.attachMedia(player);
           hls.on(Hls.Events.ERROR, function(event, data) {
-            if (data.fatal) {
+            if (data.fatal && urlIndex < allUrls.length - 1) {
               urlIndex++;
               playChannel(ch);
             }
           });
           player.play().catch(() => {
-            urlIndex++;
-            playChannel(ch);
+            if (urlIndex < allUrls.length - 1) {
+              urlIndex++;
+              playChannel(ch);
+            }
           });
         } else {
           player.style.display = 'none';
@@ -635,16 +637,20 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
           document.querySelector('.video-wrap').appendChild(iframe);
         }
         iframe.onerror = () => {
-          urlIndex++;
-          playChannel(ch);
+          if (urlIndex < allUrls.length - 1) {
+            urlIndex++;
+            playChannel(ch);
+          }
         };
-        iframe.src = currentUrl;
+iframe.src = currentUrl;
         iframe.style.display = 'block';
       } else {
         player.src = currentUrl;
         player.play().catch(() => {
-          urlIndex++;
-          playChannel(ch);
+          if (urlIndex < allUrls.length - 1) {
+            urlIndex++;
+            playChannel(ch);
+          }
         });
       }
     }
