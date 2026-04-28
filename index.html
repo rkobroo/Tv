@@ -871,7 +871,12 @@ iframe.src = currentUrl;
       const floatTitle = document.getElementById('floatTitle');
       currentFloatUrl = url;
       
-floatIframe.onload = () => {
+      // Fullscreen for webcric
+      if (url.includes('webcric')) {
+        floatPlayer.style.cssText = 'display:block;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;';
+      }
+      
+      floatIframe.onload = () => {
         try {
           const doc = floatIframe.contentDocument;
           // Hide common ad elements
