@@ -212,50 +212,10 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-  <script>
+<script>
     // Check for stream param to auto-play in popup
     const urlParams = new URLSearchParams(window.location.search);
     const streamUrl = urlParams.get('stream');
-    
-window.addEventListener('DOMContentLoaded', async () => {
-      // Show loading immediately
-      channelListEl.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading channels...</div>';
-      
-      // Small delay to let UI render
-      await new Promise(r => setTimeout(r, 50));
-      
-      if (streamUrl) {
-        // We're in popup - auto play the stream
-        document.getElementById('floatPlayer').style.display = 'none';
-        document.querySelector('.container').style.height = '100vh';
-        
-        const player = document.getElementById('player');
-        player.style.display = 'block';
-        
-        if (streamUrl.includes('.m3u8')) {
-          if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-            const hls = new Hls();
-            hls.loadSource(streamUrl);
-            hls.attachMedia(player);
-            player.play();
-          }
-        } else {
-          // iframe for non-m3u8 URLs
-          let iframe = document.getElementById('yonoFrame');
-          if (!iframe) {
-            iframe = document.createElement('iframe');
-            iframe.id = 'yonoFrame';
-            iframe.style.cssText = 'width:100%;height:100%;border:none;';
-            document.querySelector('.video-wrap').appendChild(iframe);
-          }
-        }
-
-        return;
-      }
-      
-      // Load default source - Premium Channels
-      loadPreset();
-    });
     
     const player = document.getElementById('player');
     const channelListEl = document.getElementById('channelList');
@@ -885,18 +845,64 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       });
     });
 
+    // Load playlist from URL input
+    function loadPlaylist() {
+      const url = playlistUrlInput.value.trim();
+      if (!url) return;
+      
+      channelListEl.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading...</div>';
+      
+      fetch(url)
+        .then(r => r.text())
+        .then(text => {
+          // Parse m3u8
+          const lines = text.split('\n');
+          let channels = [];
+          let current = null;
+          
+          lines.forEach(line => {
+            if (line.startsWith('#EXTINF:')) {
+              const name = line.split(',')[1]?.trim() || 'Unknown';
+              current = { name, url: '', group: 'Channels' };
+            } else if (line.trim() && !line.startsWith('#')) {
+              if (current) {
+                current.url = line.trim();
+                channels.push(current);
+                current = null;
+              }
+            }
+          });
+          
+          allChannels = channels;
+          renderChannels();
+        })
+        .catch(e => {
+          channelListEl.innerHTML = '<div class="loading">Error: ' + e.message + '</div>';
+        });
+    }
+    
     // Auto-load default playlist
     // Automatically select Premium Channels and play Star Sports 1 on page load
-    window.addEventListener('DOMContentLoaded', () => {
+    async function initApp() {
+      console.log('Loading preset...');
+      channelListEl.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading channels...</div>';
+      
+      // Small delay to show loading
+      await new Promise(r => setTimeout(r, 50));
+      
       document.getElementById('presetSelect').value = '__PREMIUM_CHANNELS__';
       loadPreset();
+      
       setTimeout(() => {
         const hdIpl = allChannels.find(ch => ch.name === 'HD IPL');
         if (hdIpl) {
           playChannel(hdIpl);
         }
       }, 1000);
-    });
+    }
+    
+    // Run on page load
+    window.addEventListener('DOMContentLoaded', initApp);
     loadPlaylist();
     
     // Floating Player Functions
