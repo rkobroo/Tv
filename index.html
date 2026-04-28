@@ -235,11 +235,12 @@
           }
         } else {
           // iframe for non-m3u8 URLs
+          let iHeight = streamUrl.includes('webcric') ? '100vh' : 'calc(100vh - 120px)';
           let iframe = document.getElementById('yonoFrame');
           if (!iframe) {
             iframe = document.createElement('iframe');
             iframe.id = 'yonoFrame';
-            iframe.style.cssText = 'width:100%;height:calc(100vh - 120px);border:none;';
+            iframe.style.cssText = `width:100%;height:${iHeight};border:none;`;
             document.querySelector('.video-wrap').appendChild(iframe);
           }
           player.style.display = 'none';
@@ -331,11 +332,12 @@ let cachedMatches = null;
       
       // Also show in iframe
       player.style.display = 'none';
+      let iHeight = matchUrl.includes('webcric') ? '100vh' : 'calc(100vh - 120px)';
       let iframe = document.getElementById('yonoFrame');
       if (!iframe) {
         iframe = document.createElement('iframe');
         iframe.id = 'yonoFrame';
-        iframe.style.cssText = 'width:100%;height:calc(100vh - 120px);border:none;';
+        iframe.style.cssText = `width:100%;height:${iHeight};border:none;`;
         iframe.setAttribute('allowfullscreen', '');
         document.querySelector('.video-wrap').appendChild(iframe);
       }
@@ -404,15 +406,16 @@ let cachedMatches = null;
     function loadIplstreams(url, title) {
 nowPlayingEl.innerHTML = title + ' <button onclick="popOutIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:10px;">Pop Out</button> <button onclick="pipIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:5px;">🎬 PiP</button>';
       
-      player.style.display = 'none';
-      let iframe = document.getElementById('yonoFrame');
-      if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.id = 'yonoFrame';
-        iframe.style.cssText = 'width:100%;height:calc(100vh - 120px);border:none;';
-        iframe.setAttribute('allowfullscreen', '');
-        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
-        document.querySelector('.video-wrap').appendChild(iframe);
+      // iframe for non-m3u8 URLs - fullscreen for webcric
+          let iframeHeight = url.includes('webcric') ? '100vh' : 'calc(100vh - 120px)';
+          let iframe = document.getElementById('yonoFrame');
+          if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'yonoFrame';
+            iframe.style.cssText = `width:100%;height:${iframeHeight};border:none;`;
+            iframe.setAttribute('allowfullscreen', '');
+            iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
+            document.querySelector('.video-wrap').appendChild(iframe);
         
         // Try to remove ads after load
         iframe.onload = () => {
@@ -652,11 +655,12 @@ nowPlayingEl.innerHTML = title + ' <button onclick="popOutIplstreams()" style="b
             }
           });
         } else {
+          let iHeight = currentUrl.includes('webcric') ? '100vh' : 'calc(100vh - 120px)';
           player.style.display = 'none';
           if (!iframe) {
             iframe = document.createElement('iframe');
             iframe.id = 'yonoFrame';
-            iframe.style.cssText = 'width:100%;height:calc(100vh - 120px);border:none;';
+            iframe.style.cssText = `width:100%;height:${iHeight};border:none;`;
             iframe.setAttribute('allowfullscreen', '');
             document.querySelector('.video-wrap').appendChild(iframe);
           }
@@ -664,11 +668,12 @@ nowPlayingEl.innerHTML = title + ' <button onclick="popOutIplstreams()" style="b
           iframe.style.display = 'block';
         }
       } else if (currentUrl.includes('.ts') || currentUrl.includes('/live/') && currentUrl.includes('?')) {
+        let iframeHeight = currentUrl.includes('webcric') ? '100vh' : 'calc(100vh - 120px)';
         player.style.display = 'none';
         if (!iframe) {
           iframe = document.createElement('iframe');
           iframe.id = 'yonoFrame';
-          iframe.style.cssText = 'width:100%;height:calc(100vh - 120px);border:none;';
+          iframe.style.cssText = `width:100%;height:${iframeHeight};border:none;`;
           iframe.setAttribute('allowfullscreen', '');
           document.querySelector('.video-wrap').appendChild(iframe);
         }
