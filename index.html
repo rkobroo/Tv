@@ -866,7 +866,20 @@ iframe.src = currentUrl;
       const floatTitle = document.getElementById('floatTitle');
       currentFloatUrl = url;
       
-floatIframe.onload = () => {
+      // Different sizes based on website
+      if (url.includes('webcric')) {
+        // Fullscreen for webcric
+        floatPlayer.style.cssText = 'display:block;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;';
+      } else if (url.includes('iplstreams')) {
+        // Medium size for iplstreams (513x500)
+        floatPlayer.style.cssText = 'display:block;position:fixed;bottom:20px;right:20px;width:520px;height:520px;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+      } else {
+        // Normal float player for others
+        floatPlayer.style.cssText = 'display:block;';
+        floatPlayer.classList.remove('collapsed');
+      }
+      
+      floatIframe.onload = () => {
         try {
           const doc = floatIframe.contentDocument;
           // Hide common ad elements
