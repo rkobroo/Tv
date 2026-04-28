@@ -567,9 +567,9 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       const urls = ch.urls || [ch.url, ch.fallback].filter(Boolean);
       if (newUrlIndex !== null) urlIndex = newUrlIndex;
       
-      // If all URLs failed, reset to try again from beginning (loop)
       if (urlIndex >= urls.length) {
-        urlIndex = 0;
+        nowPlayingEl.innerHTML = `❌ All streams failed for: ${ch.name}`;
+        return;
       }
       
       const url = urls[urlIndex];
@@ -578,7 +578,7 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
         `<button onclick="playChannel(currentChannel, ${i})" style="background:${i === urlIndex ? '#4a9eff' : '#666'};border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:5px;">${i + 1}</button>`
       ).join('') : '';
       
-      nowPlayingEl.innerHTML = `Playing: ${ch.name}${label} <button onclick="togglePiP()" style="background:#4a9eff;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:10px;">PiP</button>${switchBtns} <button onclick="toggleMiniPlayer()" style="background:#666;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:5px;">Mini</button> <button onclick="retryUrls()" style="background:#e67e22;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:5px;">🔄 Retry</button>`;
+      nowPlayingEl.innerHTML = `Playing: ${ch.name}${label} <button onclick="togglePiP()" style="background:#4a9eff;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:10px;">PiP</button>${switchBtns} <button onclick="toggleMiniPlayer()" style="background:#666;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:5px;">Mini</button>`;
       
       // Destroy previous hls
       if (hls) {
@@ -604,14 +604,16 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
           hls.loadSource(currentUrl);
           hls.attachMedia(player);
           hls.on(Hls.Events.ERROR, function(event, data) {
-            if (data.fatal) {
+            if (data.fatal && urlIndex < allUrls.length - 1) {
               urlIndex++;
               playChannel(ch);
             }
           });
           player.play().catch(() => {
-            urlIndex++;
-            playChannel(ch);
+            if (urlIndex < allUrls.length - 1) {
+              urlIndex++;
+              playChannel(ch);
+            }
           });
         } else {
           player.style.display = 'none';
@@ -635,16 +637,20 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
           document.querySelector('.video-wrap').appendChild(iframe);
         }
         iframe.onerror = () => {
-          urlIndex++;
-          playChannel(ch);
+          if (urlIndex < allUrls.length - 1) {
+            urlIndex++;
+            playChannel(ch);
+          }
         };
-        iframe.src = currentUrl;
+iframe.src = currentUrl;
         iframe.style.display = 'block';
       } else {
         player.src = currentUrl;
         player.play().catch(() => {
-          urlIndex++;
-          playChannel(ch);
+          if (urlIndex < allUrls.length - 1) {
+            urlIndex++;
+            playChannel(ch);
+          }
         });
       }
     }
@@ -673,27 +679,6 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
       } else {
         videoWrap.style.cssText = '';
       }
-    }
-    
-    // Retry all URLs from start
-    function retryUrls() {
-      if (currentChannel) {
-        urlIndex = 0;
-        playChannel(currentChannel);
-      }
-    }
-    
-    // Auto-retry with rotation loop
-    let retryTimeout;
-    function autoRetryUrls() {
-      clearTimeout(retryTimeout);
-      retryTimeout = setTimeout(() => {
-        if (currentChannel) {
-          const urls = currentChannel.urls || [currentChannel.url, currentChannel.fallback].filter(Boolean);
-          urlIndex = (urlIndex + 1) % urls.length;
-          playChannel(currentChannel);
-        }
-      }, 5000); // Try next URL every 5 seconds
     }
     
     // Channel info overlay
