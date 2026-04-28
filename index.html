@@ -239,8 +239,8 @@
           if (!iframe) {
             iframe = document.createElement('iframe');
             iframe.id = 'yonoFrame';
-            iframe.style.cssText = 'width:100%;height:100%;border:none;';
-            document.querySelector('.video-wrap').appendChild(iframe);
+            iframe.style.cssText = 'width:100vw;height:100vh;position:fixed;top:0;left:0;border:none;z-index:9999;';
+            document.body.appendChild(iframe);
           }
           player.style.display = 'none';
           iframe.style.display = 'block';
@@ -335,9 +335,9 @@ let cachedMatches = null;
       if (!iframe) {
         iframe = document.createElement('iframe');
         iframe.id = 'yonoFrame';
-        iframe.style.cssText = 'width:100%;height:100%;border:none;';
+        iframe.style.cssText = 'width:100vw;height:100vh;position:fixed;top:0;left:0;border:none;z-index:9999;';
         iframe.setAttribute('allowfullscreen', '');
-        document.querySelector('.video-wrap').appendChild(iframe);
+        document.body.appendChild(iframe);
       }
       iframe.src = matchUrl;
       iframe.style.display = 'block';
@@ -404,15 +404,15 @@ let cachedMatches = null;
     function loadIplstreams(url, title) {
       nowPlayingEl.innerHTML = title + ' <button onclick="popOutIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:10px;">Pop Out</button> <button onclick="pipIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:5px;">🎬 PiP</button>';
       
-      player.style.display = 'none';
+player.style.display = 'none';
       let iframe = document.getElementById('yonoFrame');
       if (!iframe) {
         iframe = document.createElement('iframe');
         iframe.id = 'yonoFrame';
-iframe.style.cssText = 'width:100%;height:100%;border:none;';
+        iframe.style.cssText = 'width:100vw;height:100vh;position:fixed;top:0;left:0;border:none;z-index:9999;';
         iframe.setAttribute('allowfullscreen', '');
         iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
-        document.querySelector('.video-wrap').appendChild(iframe);
+        document.body.appendChild(iframe);
         
         // Try to remove ads after load
         iframe.onload = () => {
@@ -656,9 +656,9 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
           if (!iframe) {
             iframe = document.createElement('iframe');
             iframe.id = 'yonoFrame';
-            iframe.style.cssText = 'width:100%;height:100%;border:none;';
+            iframe.style.cssText = 'width:100vw;height:100vh;position:fixed;top:0;left:0;border:none;z-index:9999;';
             iframe.setAttribute('allowfullscreen', '');
-            document.querySelector('.video-wrap').appendChild(iframe);
+            document.body.appendChild(iframe);
           }
           iframe.src = currentUrl;
           iframe.style.display = 'block';
@@ -668,9 +668,9 @@ iframe.style.cssText = 'width:100%;height:100%;border:none;';
         if (!iframe) {
           iframe = document.createElement('iframe');
           iframe.id = 'yonoFrame';
-          iframe.style.cssText = 'width:100%;height:100%;border:none;';
+          iframe.style.cssText = 'width:100vw;height:100vh;position:fixed;top:0;left:0;border:none;z-index:9999;';
           iframe.setAttribute('allowfullscreen', '');
-          document.querySelector('.video-wrap').appendChild(iframe);
+          document.body.appendChild(iframe);
         }
         iframe.onerror = () => {
           if (urlIndex < allUrls.length - 1) {
