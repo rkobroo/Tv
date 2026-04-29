@@ -8,9 +8,14 @@ buildscript {
     }
 }
 
-plugins {
-    id 'com.android.application'
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
 }
+
+apply plugin: 'com.android.application'
 
 android {
     namespace 'com.rkolivetv'
