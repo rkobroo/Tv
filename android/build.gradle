@@ -9,8 +9,7 @@ buildscript {
 }
 
 plugins {
-    id 'com.android.application' version '8.1.0'
-    id 'com.android.library' version '8.1.0'
+    id 'com.android.application'
 }
 
 android {
@@ -28,7 +27,6 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
