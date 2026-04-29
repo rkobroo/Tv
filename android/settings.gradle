@@ -1,0 +1,18 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode = "fail_on_project_scopes"
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "RKO Live TV"
+include ':app'
