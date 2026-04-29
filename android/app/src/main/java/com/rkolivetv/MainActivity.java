@@ -5,12 +5,14 @@ import android.app.PictureInPictureParams;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.graphics.Rational;
+import android.util.Rational;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -167,20 +169,9 @@ public class MainActivity extends AppCompatActivity {
             "  }" +
             "};" +
             "})()";
-        view.evaluateJavascript(js, null);
+view.evaluateJavascript(js, null);
     }
-
-    @Override
-    public void onUserLeaveHint() {
-        super.onUserLeaveHint();
-        // Enter PiP when user leaves app
-        if (webView != null && !webView.getUrl().equals("about:blank")) {
-            enterPictureInPictureMode(new PictureInPictureParams.Builder()
-                .setAspectRatio(new Rational(16, 9))
-                .build());
-        }
-    }
-
+    
     @Override
     public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
