@@ -36,6 +36,11 @@ jobs:
       - name: Build APK
         run: |
           cd android
+          pwd
+          ls -la
+          ls -la app/
+          ls -la app/src/
+          ls -laR app/src/main/
           ./gradle-8.2/bin/gradle assembleDebug --no-daemon
       
       - name: Upload APK
