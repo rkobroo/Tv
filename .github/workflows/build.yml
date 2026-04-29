@@ -18,15 +18,25 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
       
-      - name: Download and extract Gradle 8.2
+      - name: Download Gradle
         run: |
           cd android
           rm -rf gradle-*
-          curl -sL https://services.gradle.org/distributions/gradle-8.2-bin.zip -o ../gradle.zip
-          unzip -q ../gradle.zip
-          chmod +x ../gradle-8.2/bin/gradle
-          ../gradle-8.2/bin/gradle assembleDebug --no-daemon
-          rm -rf ../gradle.zip ../gradle-8.2
+          curl -L -o gradle.zip https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          ls -la
+      
+      - name: Extract and Build
+        run: |
+          cd android
+          unzip -o gradle.zip
+          ls -la
+          chmod +x gradle-8.2/bin/gradle
+          ./gradle-8.2/bin/gradle --version
+      
+      - name: Build APK
+        run: |
+          cd android
+          ./gradle-8.2/bin/gradle assembleDebug --no-daemon
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
