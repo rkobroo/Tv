@@ -14,18 +14,58 @@ public class MainActivity extends AppCompatActivity {
         // Check if opened with video URL
         Intent intent = getIntent();
         String videoUrl = intent.getStringExtra("video_url");
+        boolean startFloating = intent.getBooleanExtra("floating", false);
         
         setupWebView();
         
         if (videoUrl != null) {
-            // Open in PiP mode
             enterPictureInPictureMode(new PictureInPictureParams.Builder()
                 .setAspectRatio(new Rational(16, 9))
                 .build());
         }
         
-        // Auto-refresh website every 5 minutes
+        if (startFloating) {
+            startFloatingOverlay();
+        }
+        
         startAutoRefresh();
+    }
+    
+    // Check and start floating when leaving app
+    @Override
+    public void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        
+        // Try overlay first, fallback to PiP
+        if (canDrawOverlays()) {
+            startFloatingService(currentVideoUrl.isEmpty() ? WEBSITE_URL : currentVideoUrl);
+        } else if (webView != null && !isInPipMode) {
+            enterPictureInPictureMode(new PictureInPictureParams.Builder()
+                .setAspectRatio(new Rational(16, 9))
+                .build());
+        }
+    }
+    
+    private boolean canDrawOverlays() {
+        return android.provider.Settings.canDrawOverlays(this);
+    }
+    
+    private void startFloatingOverlay() {
+        if (canDrawOverlays()) {
+            startFloatingService(WEBSITE_URL);
+        } else {
+            // Request permission
+            Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        }
+    }
+    
+    private void startFloatingService(String url) {
+        Intent intent = new Intent(this, FloatingService.class);
+        intent.setAction("START_FLOATING");
+        intent.putExtra("url", url);
+        startForegroundService(intent);
     }
 
     private void startAutoRefresh() {
