@@ -1,6 +1,28 @@
+package com.rkolivetv;
+
+import android.app.Activity;
+import android.app.PictureInPictureParams;
+import android.content.Context;
+import android.content.Intent;
+import android.content.res.Configuration;
+import android.graphics.Rational;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
+import android.view.View;
+import android.webkit.WebChromeClient;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
-    private PictureInPictureController pipController;
     private boolean isInPipMode = false;
     private String currentVideoUrl = "";
     
@@ -47,7 +69,7 @@ public class MainActivity extends AppCompatActivity {
     }
     
     private boolean canDrawOverlays() {
-        return android.provider.Settings.canDrawOverlays(this);
+        return Settings.canDrawOverlays(this);
     }
     
     private void startFloatingOverlay() {
@@ -55,7 +77,7 @@ public class MainActivity extends AppCompatActivity {
             startFloatingService(WEBSITE_URL);
         } else {
             // Request permission
-            Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:" + getPackageName()));
             startActivity(intent);
         }
@@ -104,21 +126,7 @@ public class MainActivity extends AppCompatActivity {
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(true);
         
-        // Enable Picture-in-Picture
-        webView.setPictureInPictureCallback(new WebView.PictureInPictureCallback() {
-            @Override
-            public void onEnterPictureInPicture() {
-                isInPipMode = true;
-            }
-
-            @Override
-            public void onExitPictureInPicture() {
-                isInPipMode = false;
-                if (webView != null) {
-                    webView.reload();
-                }
-            }
-        });
+        // PiP handled via onUserLeaveHint and JavaScript injection
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -145,7 +153,7 @@ public class MainActivity extends AppCompatActivity {
         // Load your website
         webView.loadUrl("https://rko-live-tv.vercel.app");
     }
-
+    
     private void injectPiPTriggers(WebView view) {
         String js = "javascript:(function() {" +
             "document.addEventListener('visibilitychange', function() {" +
