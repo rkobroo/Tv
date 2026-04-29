@@ -3,6 +3,9 @@ public class MainActivity extends AppCompatActivity {
     private PictureInPictureController pipController;
     private boolean isInPipMode = false;
     private String currentVideoUrl = "";
+    
+    private static final String WEBSITE_URL = "https://rko-live-tv.vercel.app";
+    private static final int CHECK_UPDATE_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -20,6 +23,35 @@ public class MainActivity extends AppCompatActivity {
                 .setAspectRatio(new Rational(16, 9))
                 .build());
         }
+        
+        // Auto-refresh website every 5 minutes
+        startAutoRefresh();
+    }
+
+    private void startAutoRefresh() {
+        Handler handler = new Handler(Looper.getMainLooper());
+        Runnable refreshTask = new Runnable() {
+            @Override
+            public void run() {
+                if (webView != null && !isInPipMode) {
+                    webView.reload(); // Refresh page
+                }
+                handler.postDelayed(this, CHECK_UPDATE_INTERVAL);
+            }
+        };
+        handler.postDelayed(refreshTask, CHECK_UPDATE_INTERVAL);
+    }
+
+    // Swipe down to refresh
+    private void setupSwipeRefresh() {
+        SwipeRefreshLayout swipe = new SwipeRefreshLayout(this);
+        swipe.addView(webView);
+        setContentView(swipe);
+        
+        swipe.setOnRefreshListener(() -> {
+            webView.reload();
+            swipe.setRefreshing(false);
+        });
     }
 
     private void setupWebView() {
