@@ -4,6 +4,14 @@ android {
     namespace 'com.rkolivetv'
     compileSdk 34
 
+    sourceSets {
+        main {
+            manifest.srcFile 'src/main/AndroidManifest.xml'
+            java.srcDirs = ['src/main/java']
+            res.srcDirs = ['src/main/res']
+        }
+    }
+
     defaultConfig {
         applicationId "com.rkolivetv"
         minSdk 24
