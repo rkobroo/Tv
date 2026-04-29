@@ -20,14 +20,18 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
       
-      - name: Install Gradle
+      - name: Create Gradle Wrapper
         run: |
           cd android
-          gradle wrapper --gradle-version 8.4
+          curl -sL https://services.gradle.org/distributions/gradle-8.4-bin.zip -o gradle.zip
+          unzip -q gradle.zip
+          ./gradle-8.4/bin/gradle wrapper --gradle-version 8.4
+          rm -rf gradle.zip gradle-8.4
       
       - name: Build debug APK
         run: |
           cd android
+          chmod +x gradlew
           ./gradlew assembleDebug
       
       - name: Upload APK
