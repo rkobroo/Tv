@@ -543,9 +543,9 @@ nowPlayingEl.innerHTML = title + ' <button onclick="popOutIplstreams()" style="b
       const search = searchInput.value.toLowerCase();
       if (search) {
         filtered = filtered.filter(ch => 
-          ch.name.toLowerCase().includes(search) ||
-          ch.country.toLowerCase().includes(search) ||
-          ch.group.toLowerCase().includes(search)
+          (ch.name || '').toLowerCase().includes(search) ||
+          (ch.country || '').toLowerCase().includes(search) ||
+          (ch.group || '').toLowerCase().includes(search)
         );
       }
 
@@ -779,7 +779,10 @@ iframe.src = currentUrl;
     // Load playlist
     async function loadPlaylist() {
       const url = playlistUrlInput.value.trim();
-      if (!url) return;
+      if (!url) {
+        channelListEl.innerHTML = '<div class="loading" style="color:#ff0">⚠️ Select a source from the dropdown or paste an M3U URL above</div>';
+        return;
+      }
       
       // YonoTV - direct iframe, no playlist to fetch
       if (url.includes('yonotv.pages.dev')) {
@@ -857,18 +860,15 @@ iframe.src = currentUrl;
     });
 
     // Auto-load default playlist
-    // Automatically select Premium Channels and play Star Sports 1 on page load
     window.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('presetSelect').value = '__PREMIUM_CHANNELS__';
-      loadPreset();
-      setTimeout(() => {
-        const hdIpl = allChannels.find(ch => ch.name === 'HD IPL');
-        if (hdIpl) {
-          playChannel(hdIpl);
-        }
-      }, 1000);
+      try {
+        document.getElementById('presetSelect').value = '__PREMIUM_CHANNELS__';
+        loadPreset();
+      } catch (e) {
+        console.error('Auto-load error:', e);
+        channelListEl.innerHTML = '<div class="loading" style="color:#f55">Error: ' + e.message + '</div>';
+      }
     });
-    loadPlaylist();
     
     // Floating Player Functions
     let floatSizes = ['small', 'medium', 'large'];

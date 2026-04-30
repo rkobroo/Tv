@@ -779,7 +779,10 @@ iframe.src = currentUrl;
     // Load playlist
     async function loadPlaylist() {
       const url = playlistUrlInput.value.trim();
-      if (!url) return;
+      if (!url) {
+        channelListEl.innerHTML = '<div class="loading" style="color:#ff0">⚠️ Select a source from the dropdown or paste an M3U URL</div>';
+        return;
+      }
       
       // YonoTV - direct iframe, no playlist to fetch
       if (url.includes('yonotv.pages.dev')) {
@@ -791,24 +794,24 @@ iframe.src = currentUrl;
       channelListEl.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading channels...</div>';
       
       try {
-        let fetchUrl = url;
-        // Check if it's a direct m3u8 URL - play directly
+        // Direct m3u8 - play without fetching
         if (url.endsWith('.m3u8') && (url.startsWith('http://') || url.includes('.'))) {
-          // Direct m3u8 - play directly without fetching playlist
           allChannels = [{ name: 'Live Stream', url: url, group: 'Live', logo: '' }];
           renderChannels();
           return;
         }
         
-        // Use CORS proxy for other URLs
-        if (!url.includes(window.location.host) && !url.includes('localhost')) {
-          fetchUrl = url;
+        let text;
+        // Try native Android bridge first (for file:// origin)
+        if (typeof Android !== 'undefined' && Android.fetchUrl) {
+          text = Android.fetchUrl(url);
+        } else {
+          // Fallback: direct fetch
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          text = await response.text();
         }
         
-        const response = await fetch(fetchUrl);
-        if (!response.ok) throw new Error('Failed to fetch: ' + response.status);
-        
-        const text = await response.text();
         if (!text || text.length < 100) throw new Error('Empty or invalid response');
         
         // Check if it's a direct HLS stream (live stream, not a channel list)

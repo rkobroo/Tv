@@ -15,6 +15,11 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "RKO";
     private static final String PREFS = "RKO_PREFS";
@@ -58,8 +63,10 @@ public class MainActivity extends AppCompatActivity {
         webView.getSettings().setLoadWithOverviewMode(true);
         webView.getSettings().setAllowFileAccess(true);
         webView.getSettings().setAllowContentAccess(true);
+        webView.getSettings().setAllowUniversalAccessFromFileURLs(true);
         webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
         webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
+        webView.getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
         webView.addJavascriptInterface(new WebAppInterface(), "Android");
 
@@ -207,6 +214,34 @@ public class MainActivity extends AppCompatActivity {
             if (url != null && !url.isEmpty()) {
                 prefs.edit().putString(KEY_STREAM_URL, url).apply();
                 lastStreamUrl = url;
+            }
+        }
+
+        @JavascriptInterface
+        public String fetchUrl(String urlString) {
+            Log.d(TAG, "Native fetch: " + urlString);
+            try {
+                URL url = new URL(urlString);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(20000);
+                conn.setInstanceFollowRedirects(true);
+
+                BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream()));
+                StringBuilder result = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    result.append(line).append("\n");
+                }
+                reader.close();
+                conn.disconnect();
+                return result.toString();
+            } catch (Exception e) {
+                Log.e(TAG, "Native fetch error: " + e.getMessage());
+                return "ERROR: " + e.getMessage();
             }
         }
     }
