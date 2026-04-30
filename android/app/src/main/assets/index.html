@@ -98,6 +98,18 @@
       .input-row { flex-wrap: wrap; }
       .url-input, .load-btn { width: 100%; padding: 14px; font-size: 16px; }
       #presetSelect { width: 100%; padding: 14px; font-size: 16px; max-width: 100% !important; }
+    }
+
+    /* PiP Mode - hide everything except video */
+    body.pip-mode header, body.pip-mode .sidebar, body.pip-mode .now-playing,
+    body.pip-mode #floatPlayer, body.pip-mode #streamModal, body.pip-mode .float-controls {
+      display: none !important;
+    }
+    body.pip-mode .container { height: 100vh !important; flex-direction: column !important; }
+    body.pip-mode .main { height: 100vh !important; flex: none !important; width: 100% !important; }
+    body.pip-mode .video-wrap { padding: 0 !important; }
+    body.pip-mode #player { width: 100vw !important; height: 100vh !important; border-radius: 0 !important; }
+    body.pip-mode #yonoFrame { width: 100vw !important; height: 100vh !important; }
       .search-input, .chip { font-size: 16px; padding: 12px; }
       .ch-name { font-size: 16px; }
       .ch-country { font-size: 14px; }
@@ -954,6 +966,17 @@ floatIframe.onload = () => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(r => console.log('SW registered')).catch(e => console.log('SW error', e));
     }
+
+    // PiP Mode Detection
+    function checkPipMode() {
+      if (window.innerHeight < 300 && window.innerWidth < 500) {
+        document.body.classList.add('pip-mode');
+      } else {
+        document.body.classList.remove('pip-mode');
+      }
+    }
+    window.addEventListener('resize', checkPipMode);
+    checkPipMode();
   </script>
 </body>
 </html>
