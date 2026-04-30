@@ -977,6 +977,22 @@ floatIframe.onload = () => {
     }
     window.addEventListener('resize', checkPipMode);
     checkPipMode();
+
+    // Report current stream URL to Android for floating player
+    setInterval(function() {
+      var video = document.querySelector('video');
+      if (video && video.src) {
+        if (typeof Android !== 'undefined') {
+          Android.onVideoPlaying(video.src);
+        }
+      }
+      var iframe = document.getElementById('yonoFrame');
+      if (iframe && iframe.src && iframe.style.display !== 'none') {
+        if (typeof Android !== 'undefined') {
+          Android.onVideoPlaying(iframe.src);
+        }
+      }
+    }, 1000);
   </script>
 </body>
 </html>

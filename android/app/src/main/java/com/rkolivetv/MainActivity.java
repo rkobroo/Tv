@@ -1,35 +1,34 @@
 package com.rkolivetv;
 
-import android.app.PictureInPictureModeChangedInfo;
-import android.app.PictureInPictureParams;
-import android.app.RemoteAction;
+import android.app.AlertDialog;
 import android.content.Intent;
-import android.content.res.Configuration;
+import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
-import android.util.Rational;
 import android.view.ViewGroup;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.webkit.WebResourceRequest;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-
-import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "RKO";
+    private static final String PREFS = "RKO_PREFS";
+    private static final String KEY_CURRENT_URL = "current_stream_url";
+
     private WebView webView;
+    private SharedPreferences prefs;
     private static final String LOCAL_URL = "file:///android_asset/index.html";
-    private boolean isInPipMode = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.d(TAG, "onCreate start");
+        prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
 
         FrameLayout root = new FrameLayout(this);
         setContentView(root);
@@ -52,14 +51,30 @@ public class MainActivity extends AppCompatActivity {
         webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
         webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
 
+        // JavaScript interface to get current stream URL
+        webView.addJavascriptInterface(new WebAppInterface(), "Android");
+
+        // Inject JS to report current playing URL to Android
+        String jsBridge = "javascript:(function() {" +
+                "var lastUrl = '';" +
+                "setInterval(function() {" +
+                "  var video = document.querySelector('video');" +
+                "  if (video && video.src && video.src !== lastUrl) {" +
+                "    lastUrl = video.src;" +
+                "    Android.onVideoPlaying(video.src);" +
+                "  }" +
+                "}, 1000);" +
+                "})();";
+
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
                 Log.d(TAG, "Page loaded: " + url);
+                view.loadUrl(jsBridge);
             }
 
             @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 return false;
             }
         });
@@ -69,69 +84,61 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onStart() {
-        super.onStart();
-        Log.d(TAG, "onStart");
-        if (!isInPipMode) {
-            webView.onResume();
+    protected void onPause() {
+        super.onPause();
+        Log.d(TAG, "onPause");
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Log.d(TAG, "onStop - checking for active stream");
+
+        String streamUrl = prefs.getString(KEY_CURRENT_URL, "");
+
+        if (!streamUrl.isEmpty()) {
+            Log.d(TAG, "Active stream found: " + streamUrl);
+            startFloatingPlayer(streamUrl);
+        } else {
+            Log.d(TAG, "No active stream, no floating player");
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        Log.d(TAG, "onResume");
+        Log.d(TAG, "onResume - stopping floating player if running");
+        // Stop the floating service when we come back to app
+        try {
+            stopService(new Intent(this, FloatingService.class));
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping service: " + e.getMessage());
+        }
         webView.onResume();
     }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        Log.d(TAG, "onPause, isInPip=" + isInPipMode);
-        if (!isInPipMode) {
-            webView.onPause();
+    private void startFloatingPlayer(String url) {
+        Log.d(TAG, "Starting floating player for: " + url);
+
+        // Check overlay permission
+        if (!Settings.canDrawOverlays(this)) {
+            Log.d(TAG, "No overlay permission, requesting...");
+            new AlertDialog.Builder(this)
+                    .setTitle("Floating Player")
+                    .setMessage("Enable overlay permission to play video over other apps like Facebook and TikTok.")
+                    .setPositiveButton("Enable", (dialog, which) -> {
+                        Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:" + getPackageName()));
+                        startActivityForResult(intent, 1234);
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            return;
         }
-    }
 
-    @Override
-    protected void onStop() {
-        super.onStop();
-        Log.d(TAG, "onStop");
-    }
-
-    @Override
-    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
-        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
-        isInPipMode = isInPictureInPictureMode;
-
-        if (isInPictureInPictureMode) {
-            Log.d(TAG, "Entered PiP mode");
-            webView.onResume();
-        } else {
-            Log.d(TAG, "Exited PiP mode");
-            webView.onResume();
-        }
-    }
-
-    @Override
-    public void onUserLeaveHint() {
-        super.onUserLeaveHint();
-        Log.d(TAG, "User leaving - entering PiP");
-        enterPipMode();
-    }
-
-    private void enterPipMode() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            Rational aspectRatio = new Rational(16, 9);
-            PictureInPictureParams.Builder builder = new PictureInPictureParams.Builder()
-                    .setAspectRatio(aspectRatio);
-
-            try {
-                enterPictureInPictureMode(builder.build());
-            } catch (IllegalStateException e) {
-                Log.e(TAG, "PiP failed: " + e.getMessage());
-            }
-        }
+        Intent serviceIntent = new Intent(this, FloatingService.class);
+        serviceIntent.putExtra("url", url);
+        startService(serviceIntent);
     }
 
     @Override
@@ -139,7 +146,18 @@ public class MainActivity extends AppCompatActivity {
         if (webView.canGoBack()) {
             webView.goBack();
         } else {
-            super.onBackPressed();
+            // Don't close immediately, go to home (triggers onStop -> floating)
+            moveTaskToBack(true);
+        }
+    }
+
+    public class WebAppInterface {
+        @JavascriptInterface
+        public void onVideoPlaying(String url) {
+            Log.d(TAG, "Video playing: " + url);
+            if (url != null && !url.isEmpty()) {
+                prefs.edit().putString(KEY_CURRENT_URL, url).apply();
+            }
         }
     }
 }
