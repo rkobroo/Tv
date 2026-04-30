@@ -18,6 +18,10 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
       
+      - name: Generate signing key
+        run: |
+          keytool -genkeypair -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias release -storepass release123 -keypass release123 -dname "CN=RKO TV, OU=Dev, O=RKO, L=Unknown, ST=Unknown, C=IN"
+      
       - name: Download Gradle
         run: |
           cd android
@@ -29,11 +33,11 @@ jobs:
           cd android
           unzip -o gradle.zip
           chmod +x gradle-8.2/bin/gradle
-          ./gradle-8.2/bin/gradle assembleDebug --no-daemon
+          ./gradle-8.2/bin/gradle assembleRelease --no-daemon -Pandroid.injected.signing.store.file=$(pwd)/../release.jks -Pandroid.injected.signing.store.password=release123 -Pandroid.injected.signing.key.alias=release -Pandroid.injected.signing.key.password=release123
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: rko-live-tv.apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 7
