@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#111111" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>RKO LIVE TV</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link href="https://unpkg.com/video.js@8/dist/video-js.min.css" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui; margin: 0; background: #111; color: #fff; }
+    header { padding: 15px; background: #1a1a1a; border-bottom: 1px solid #333; }
+    header h1 { margin: 0 0 12px 0; font-size: 20px; }
+    .input-row { display: flex; gap: 10px; }
+    .url-input { flex: 1; padding: 12px 15px; font-size: 14px; background: #2a2a2a; color: #fff; border: 1px solid #444; border-radius: 6px; }
+    .url-input:focus { border-color: #4a9eff; outline: none; }
+    .load-btn { padding: 12px 24px; background: #4a9eff; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .load-btn:hover { background: #3a8eef; }
+    
+    .container { display: flex; height: calc(100vh - 130px); }
+    .sidebar { width: 320px; background: #1a1a1a; border-right: 1px solid #333; overflow-y: auto; }
+    .search-row { padding: 10px; border-bottom: 1px solid #333; background: #151515; }
+    .search-input { width: 100%; padding: 10px 15px; background: #2a2a2a; color: #fff; border: 1px solid #555; border-radius: 8px; font-size: 14px; }
+    .search-input:focus { border-color: #4a9eff; outline: none; background: #333; }
+    
+    .channels { padding: 8px; }
+    .channel { display: flex; align-items: center; gap: 12px; padding: 10px; margin-bottom: 6px; background: #252525; border-radius: 8px; cursor: pointer; }
+    .channel:hover { background: #333; }
+    .channel.playing { background: #1a3a1a; border: 1px solid #3a5a3a; }
+    .logo { width: 48px; height: 48px; background: #000; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .logo img { width: 100%; height: 100%; object-fit: contain; }
+    .logo span { font-size: 18px; color: #666; }
+    .ch-info { flex: 1; }
+    .ch-name { font-weight: 600; font-size: 14px; }
+    .ch-country { font-size: 12px; color: #888; }
+    
+    .main { flex: 1; display: flex; flex-direction: column; background: #0a0a0a; }
+    .now-playing { padding: 12px 16px; font-size: 14px; color: #888; }
+    .video-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .video-wrap video { width: 100%; height: 100%; background: #000; border-radius: 12px; }
+    
+    .loading { text-align: center; padding: 40px; color: #888; }
+    .loading-spinner { width: 40px; height: 40px; border: 3px solid #333; border-top: 3px solid #4a9eff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .chips { display: flex; gap: 8px; padding: 10px; flex-wrap: wrap; border-bottom: 1px solid #333; }
+    .chip { padding: 6px 14px; background: #252525; border-radius: 20px; font-size: 12px; cursor: pointer; }
+    .chip.active { background: #4a9eff; }
+    
+    .live-match { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 8px; background: linear-gradient(135deg, #1a2a1a 0%, #252525 100%); border-radius: 10px; cursor: pointer; border: 1px solid #2a4a2a; }
+    .live-match:hover { background: linear-gradient(135deg, #2a3a2a 0%, #2f2f2f 100%); border-color: #4a6a4a; }
+    .live-badge { background: #e00; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    .match-teams { flex: 1; text-align: center; }
+    .match-teams .teams { font-weight: 600; font-size: 13px; }
+    .match-teams .time { font-size: 11px; color: #888; margin-top: 4px; }
+    .match-info { text-align: center; font-size: 11px; color: #888; }
+    
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: #1a1a1a; border-radius: 16px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; border: 1px solid #333; }
+    .modal-header { padding: 16px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h2 { margin: 0; font-size: 18px; }
+    .modal-close { background: none; border: none; color: #888; font-size: 24px; cursor: pointer; }
+    .modal-body { padding: 16px; }
+    .stream-link { display: block; padding: 14px 16px; margin-bottom: 10px; background: #252525; border-radius: 10px; cursor: pointer; border: 1px solid #333; transition: all 0.2s; }
+    .stream-link:hover { background: #2f2f2f; border-color: #4a9eff; transform: translateX(4px); }
+    .stream-link .name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+    .stream-link .quality { font-size: 11px; color: #4a9eff; }
+    .match-detail { background: #252525; padding: 16px; border-radius: 10px; margin-bottom: 16px; }
+    .match-detail .vs { font-size: 24px; font-weight: bold; text-align: center; margin: 10px 0; }
+    .match-detail .league { font-size: 12px; color: #888; text-align: center; }
+    
+    /* Floating Player */
+    .float-player { position: fixed; bottom: 20px; right: 20px; z-index: 2147483647; background: #000; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); overflow: hidden; transition: all 0.3s ease; cursor: move; }
+    .float-player.collapsed { width: 60px !important; height: 45px !important; }
+    .float-player.size-small { width: 320px; height: 240px; }
+    .float-player.size-medium { width: 640px; height: 400px; }
+    .float-player.size-large { width: 960px; height: 540px; }
+    .float-player.fullscreen { width: 100vw !important; height: 100vh !important; top: 0 !important; left: 0 !important; bottom: 0 !important; right: 0 !important; border-radius: 0; }
+    .float-player iframe { width: 100%; height: 100%; border: none; }
+    .float-controls { position: absolute; top: 0; left: 0; right: 0; height: 30px; background: rgba(0,0,0,0.7); display: flex; justify-content: space-between; align-items: center; padding: 0 8px; cursor: move; }
+    .float-btn { background: none; border: none; color: #fff; font-size: 14px; cursor: pointer; padding: 4px 10px; min-width: 32px; }
+    .float-btn:hover { color: #4a9eff; }
+    .float-title { color: #fff; font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; flex: 1; }
+    
+    /* Mobile Responsive */
+    @media (max-width: 900px), (max-height: 600px) {
+      .container { flex-direction: column !important; height: auto !important; }
+      .sidebar { width: 100% !important; height: auto !important; max-height: 40vh !important; border-right: none !important; border-bottom: 1px solid #333; }
+      .sidebar { flex: 0 0 auto !important; }
+      .main { width: 100% !important; height: 45vh !important; flex: none !important; }
+      header { padding: 10px; }
+      header h1 { font-size: 16px; }
+      .input-row { flex-wrap: wrap; }
+      .url-input, .load-btn { width: 100%; padding: 14px; font-size: 16px; }
+      #presetSelect { width: 100%; padding: 14px; font-size: 16px; max-width: 100% !important; }
+      .search-input, .chip { font-size: 16px; padding: 12px; }
+      .ch-name { font-size: 16px; }
+      .ch-country { font-size: 14px; }
+      .channel { padding: 14px; }
+      .logo { width: 40px; height: 40px; }
+      .now-playing { font-size: 14px; padding: 12px; }
+      .search-row, .chips { padding: 10px; }
+      .chip { padding: 8px 14px; font-size: 13px; }
+      .float-player.size-medium { width: 95vw; height: 55vw; max-height: 60vh; }
+      .float-player.size-large { width: 98vw; height: 70vw; }
+      .float-controls { height: 34px; }
+      .float-btn { font-size: 14px; padding: 5px 10px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Floating Player -->
+  <div id="floatPlayer" class="float-player size-medium collapsed" style="display:none;">
+    <div class="float-controls">
+      <span class="float-title" id="floatTitle">Playing</span>
+      <button class="float-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+      <button class="float-btn" onclick="toggleFloatSize()">📐</button>
+      <button class="float-btn" onclick="floatPip()" title="Picture-in-Picture">🎬</button>
+      <button class="float-btn" onclick="minimizeFloat()">_</button>
+      <button class="float-btn" onclick="closeFloat()">✕</button>
+    </div>
+    <iframe id="floatIframe" src=""></iframe>
+  </div>
+
+  <header>
+    <h1>IPTV Player <button id="installBtn" onclick="installApp()" style="display:none;background:#4a9eff;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;vertical-align:middle;">📱 Install App</button> <a href="/download.html" style="background:#4a9eff;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12px;text-decoration:none;margin-left:5px;">📥 Download App</a></h1>
+    <div class="input-row">
+      <input type="text" class="url-input" id="playlistUrl" placeholder="Paste M3U/M3U8 playlist URL..." />
+      <select id="presetSelect" onchange="loadPreset()" style="padding:10px;background:#333;color:#fff;border:1px solid #444;border-radius:6px;margin-right:5px;max-width:200px;">
+        <option value="">-- Select Source --</option>
+        <option value="/download.html">📥 Download Android App</option>
+        <option value="__PREMIUM_CHANNELS__">📺 Premium Channels</option>
+        <option value="__IPL_ADS__">🏏 Watch IPL with Ads</option>
+        <option value="https://opentivu.netlify.app/api/it">🇮🇹 Italian TV</option>
+        <option value="https://raw.githubusercontent.com/BuddyChewChew/pluto/main/pluto_us.m3u">📺 Pluto TV USA</option>
+        <option value="https://raw.githubusercontent.com/BuddyChewChew/pluto/main/pluto_all.m3u">🌍 Pluto TV All</option>
+        <option value="https://iptv-org.github.io/iptv/index.m3u">🌍 World IPTV</option>
+        <option value="https://iptv-org.github.io/iptv/countries/us.m3u">🇺🇸 USA Channels</option>
+        <option value="https://iptv-org.github.io/iptv/countries/in.m3u">🇮🇳 India</option>
+        <option value="https://iptv-org.github.io/iptv/countries/gb.m3u">🇬🇧 UK</option>
+        <option value="https://iptv-org.github.io/iptv/countries/de.m3u">🇩🇪 Germany</option>
+        <option value="https://iptv-org.github.io/iptv/categories/sports.m3u">⚽ All Sports</option>
+        <option value="https://iptv-org.github.io/iptv/countries/in.m3u">🏏 Cricket India</option>
+        <option value="https://iptv-org.github.io/iptv/countries/us.m3u">🇺🇸 USA Sports</option>
+        <option value="https://iptv-org.github.io/iptv/countries/uk.m3u">🇬🇧 UK Sports</option>
+        <option value="https://iptv-org.github.io/iptv/countries/de.m3u">🇩🇪 Germany Sports</option>
+        <option value="https://iptv-org.github.io/iptv/countries/fr.m3u">🇫🇷 France Sports</option>
+        <option value="https://iptv-org.github.io/iptv/countries/es.m3u">🇪🇸 Spain Sports</option>
+        <option value="https://iptv-org.github.io/iptv/countries/it.m3u">🇮🇹 Italy Sports</option>
+        <option value="https://iptv-org.github.io/iptv/categories/news.m3u">📰 News</option>
+        <option value="https://iptv-org.github.io/iptv/categories/movies.m3u">🎬 Movies</option>
+        <option value="https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8">📺 Free-TV Global</option>
+        <option value="https://raw.githubusercontent.com/wwb521/live/main/tv.m3u">🇨🇳 China TV</option>
+        <option value="https://raw.githubusercontent.com/HerbertHe/iptv-sources/main/dist/index.m3u">🔄 Auto IPTV</option>
+        <option value="https://iptv-org.github.io/iptv/countries/np.m3u">🇳🇵 Nepal</option>
+        <option value="https://iptv-org.github.io/iptv/countries/bd.m3u">🇧🇩 Bangladesh</option>
+        <option value="https://iptv-org.github.io/iptv/countries/pk.m3u">🇵🇰 Pakistan</option>
+        <option value="https://iptv-org.github.io/iptv/countries/lk.m3u">🇱🇰 Sri Lanka</option>
+        <option value="https://iptv-org.github.io/iptv/countries/au.m3u">🇦🇺 Australia</option>
+        <option value="https://iptv-org.github.io/iptv/countries/ca.m3u">🇨🇦 Canada</option>
+        <option value="https://iptv-org.github.io/iptv/countries/fr.m3u">🇫🇷 France</option>
+        <option value="https://iptv-org.github.io/iptv/countries/es.m3u">🇪🇸 Spain</option>
+        <option value="https://iptv-org.github.io/iptv/countries/it.m3u">🇮🇹 Italy</option>
+        <option value="https://iptv-org.github.io/iptv/countries/br.m3u">🇧🇷 Brazil</option>
+        <option value="https://iptv-org.github.io/iptv/countries/mx.m3u">🇲🇽 Mexico</option>
+        <option value="https://iptv-org.github.io/iptv/countries/ru.m3u">🇷🇺 Russia</option>
+        <option value="https://iptv-org.github.io/iptv/countries/jp.m3u">🇯🇵 Japan</option>
+        <option value="https://iptv-org.github.io/iptv/countries/kr.m3u">🇰🇷 South Korea</option>
+        <option value="https://iptv-org.github.io/iptv/countries/cn.m3u">🇨🇳 China</option>
+        <option value="https://iptv-org.github.io/iptv/categories/kids.m3u">🧒 Kids</option>
+        <option value="https://iptv-org.github.io/iptv/categories/learning.m3u">📚 Education</option>
+      </select>
+      <button class="load-btn" onclick="loadPlaylist()">Load</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <aside class="sidebar">
+      <div class="search-row">
+        <input type="text" class="search-input" id="searchInput" placeholder="Search channels..." />
+      </div>
+      <div class="chips">
+        <div class="chip active" data-cat="all">All</div>
+        <div class="chip" data-cat="sports">Sports</div>
+        <div class="chip" data-cat="news">News</div>
+        <div class="chip" data-cat="movies">Movies</div>
+        <div class="chip" data-cat="music">Music</div>
+        <div class="chip" data-cat="entertainment">Entertainment</div>
+        <div class="chip" data-cat="documentary">Documentary</div>
+      </div>
+      <div class="channels" id="channelList"></div>
+    </aside>
+
+    <main class="main">
+      <div class="now-playing" id="nowPlaying">Select a channel to play</div>
+      <div class="video-wrap">
+        <video id="player" controls preload="auto" playsinline></video>
+      </div>
+    </main>
+  </div>
+  
+  <div class="modal-overlay" id="streamModal" onclick="closeModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="modalTitle">Streaming Links</h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script>
+    // Check for stream param to auto-play in popup
+    const urlParams = new URLSearchParams(window.location.search);
+    const streamUrl = urlParams.get('stream');
+    
+    window.addEventListener('DOMContentLoaded', () => {
+      if (streamUrl) {
+        // We're in popup - auto play the stream
+        document.getElementById('floatPlayer').style.display = 'none';
+        document.querySelector('.container').style.height = '100vh';
+        
+        const player = document.getElementById('player');
+        player.style.display = 'block';
+        
+        if (streamUrl.includes('.m3u8')) {
+          if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(streamUrl);
+            hls.attachMedia(player);
+            player.play();
+          }
+        } else {
+          // iframe for non-m3u8 URLs
+          let iframe = document.getElementById('yonoFrame');
+          if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'yonoFrame';
+            iframe.style.cssText = 'width:100%;height:calc(100vh - 120px);border:none;';
+            document.querySelector('.video-wrap').appendChild(iframe);
+          }
+          player.style.display = 'none';
+          iframe.style.display = 'block';
+          iframe.src = streamUrl;
+        }
+        
+        document.getElementById('nowPlaying').textContent = 'Playing in Popup';
+      }
+    });
+    
+    const player = document.getElementById('player');
+    const channelListEl = document.getElementById('channelList');
+    const nowPlayingEl = document.getElementById('nowPlaying');
+    const searchInput = document.getElementById('searchInput');
+    const playlistUrlInput = document.getElementById('playlistUrl');
+
+    let allChannels = [];
+    let currentChannel = null;
+let hls = null;
+    let prefetchHls = null;
+    let prefetchPlayer = null;
+    
+    // Prefetch URL for faster load
+    function prefetchUrl(url) {
+      if (url && url.includes('.m3u8') && typeof Hls !== 'undefined') {
+        if (!prefetchPlayer) {
+          prefetchPlayer = document.createElement('video');
+          prefetchPlayer.muted = true;
+          prefetchPlayer.style.display = 'none';
+          document.body.appendChild(prefetchPlayer);
+        }
+        if (prefetchHls) prefetchHls.destroy();
+        prefetchHls = new Hls({fragLoadingMaxRetry: 1, manifestLoadingMaxRetry: 1});
+        prefetchHls.loadSource(url);
+        prefetchHls.attachMedia(prefetchPlayer);
+      }
+    }
+    
+    let activeCategory = 'all';
+    let isLiveMatchesMode = false;
+let cachedMatches = null;
+    let cachedStreamLinks = {};
+    
+    function closeModal(e) {
+      if (e && e.target !== e.currentTarget) return;
+      document.getElementById('streamModal').classList.remove('show');
+    }
+    
+    function showStreamLinks(match) {
+      const modal = document.getElementById('streamModal');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalBody = document.getElementById('modalBody');
+      
+      modalTitle.textContent = `${match.team1} vs ${match.team2}`;
+      
+      const detailHtml = `
+        <div class="match-detail">
+          <div class="league">${match.league}</div>
+          <div class="vs">${match.team1} <span style="color:#4a9eff">VS</span> ${match.team2}</div>
+          <div class="match-info">${match.stadium}</div>
+        </div>
+      `;
+      
+      let linksHtml = '';
+      linksHtml += `
+        <div class="stream-link" onclick="openMatchPage('${match.id}')">
+          <div class="name">Open Match Page</div>
+          <div class="quality">Click to get HD/Smooth links</div>
+        </div>
+      `;
+      
+      modalBody.innerHTML = detailHtml + linksHtml;
+      modal.classList.add('show');
+    }
+    
+    function playStream(url) {
+      closeModal();
+      playChannel({ name: 'Live Stream', url: url, group: 'Live' });
+    }
+    
+    function openMatchPage(matchId) {
+      closeModal();
+      // Show buttons to open newsecrettips page
+      const matchUrl = 'https://www.newsecrettips.com/p/match-data.html?id=' + matchId;
+      nowPlayingEl.textContent = 'Opening match page...';
+      
+      // Open in new tab
+      window.open(matchUrl, '_blank');
+      
+      // Also show in iframe
+      player.style.display = 'none';
+      let iframe = document.getElementById('yonoFrame');
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'yonoFrame';
+        iframe.style.cssText = 'width:100%;height:calc(100vh - 120px);border:none;';
+        iframe.setAttribute('allowfullscreen', '');
+        document.querySelector('.video-wrap').appendChild(iframe);
+      }
+      iframe.src = matchUrl;
+      iframe.style.display = 'block';
+    }
+
+    function renderLiveMatches() {
+      channelListEl.innerHTML = '<div style="padding:20px;text-align:center;">No live matches available</div>';
+    }
+
+    const flags = { 'NP': '🇳🇵', 'IN': '🇮🇳', 'BD': '🇧🇩', 'PK': '🇵🇰', 'LK': '🇱🇰', 'BT': '🇧🇹', 'US': '🇺🇸', 'GB': '🇬🇧', 'AU': '🇦🇺', 'CA': '🇨🇦', 'IT': '🇮🇹', 'DE': '🇩🇪', 'FR': '🇫🇷', 'ES': '🇪🇸', 'BR': '🇧🇷', 'MX': '🇲🇽', 'JP': '🇯🇵', 'KR': '🇰🇷', 'CN': '🇨🇳', 'RU': '🇷🇺' };
+    const countries = { 'NP': 'Nepal', 'IN': 'India', 'BD': 'Bangladesh', 'PK': 'Pakistan', 'LK': 'Sri Lanka', 'BT': 'Bhutan', 'US': 'USA', 'GB': 'UK', 'AU': 'Australia', 'CA': 'Canada', 'IT': 'Italy', 'DE': 'Germany', 'FR': 'France', 'ES': 'Spain', 'BR': 'Brazil', 'MX': 'Mexico', 'JP': 'Japan', 'KR': 'South Korea', 'CN': 'China', 'RU': 'Russia' };
+
+    // Load preset source
+    function loadPreset() {
+      const select = document.getElementById('presetSelect');
+      const url = select.value;
+      
+      // Watch IPL with Ads - show stream options
+      if (url === '__IPL_ADS__') {
+        allChannels = [
+          { name: 'Star Sports 1', url: 'https://iplstreams.com/star-sports-hindi', group: 'IPL', logo: 'https://i.imgur.com/Js5Eg2V.png' },
+          { name: 'Star Sports 2', url: 'https://iplstreams.com/star-sports-2', group: 'IPL', logo: 'https://i.imgur.com/Js5Eg2V.png' },
+          { name: 'Willow TV', url: 'https://go.webcric.com/frame2.htm', group: 'IPL', logo: 'https://i.imgur.com/MzxqTMf.png' },
+          { name: 'Willow TV 2', url: 'https://go.webcric.com/frame9.htm', group: 'IPL', logo: 'https://i.imgur.com/eg7RgjP.png' },
+          { name: 'Sky Sports', url: 'https://go.webcric.com/frame7.htm', group: 'IPL', logo: 'https://i.imgur.com/pTWblYk.png' }
+        ];
+        channelListEl.innerHTML = '';
+        allChannels.forEach((ch, idx) => {
+          const div = document.createElement('div');
+          div.className = 'stream-link';
+          const logoHtml = ch.logo ? `<img src="${ch.logo}" style="height:30px;margin-right:8px;vertical-align:middle;">` : '';
+          div.innerHTML = `<div class="name">${logoHtml}${ch.name}</div><div class="quality">${ch.group}</div>`;
+          div.onclick = () => {
+            showFloatPlayer(ch.url, ch.name);
+            nowPlayingEl.innerHTML = `Playing: ${ch.name}`;
+          };
+          channelListEl.appendChild(div);
+        });
+        return;
+      }
+      
+// Premium Channels - direct m3u8 with logos
+      if (url === '__PREMIUM_CHANNELS__') {
+        allChannels = [
+          { name: 'HD IPL', urls: ['https://a51.azplay31.me/hls/streama258584/index.m3u8?cst=c0e27492c6a65b2e5c11bc22abc6ffd2', 'https://plu002.myturn1.top:8088/live/starsports01/playlist.m3u8?id=123144&pk=9d9c359f9527d34ae528ccb70f1d438900c5822db4310c48ff85c528bf2dae0291836d4b2e2d7985b52707df5ebe13bb4d90f65b0f27abcf5b58d254f7435e97'], group: 'Sports', logo: '🏏' },
+          { name: 'Willow Hindi', urls: ['https://plu002.myturn1.top:8088/live/webcrichindi/playlist.m3u8?vidictid=205718619788&id=119771&pk=ab6dd2606245447c89e8f769b4ba9625bc4e041853821d8427bb2433b82258edde73e224004d64d13343cf9a37cd2f17440d34a6a3431b3666b0244a785686e6', 'https://trl01.pctrls.nl/procricket/amlst:stream_2_b550000/chunklist.m3u8?vidictid=595316108654429&id=2&pk=A176AC038E6D9260C16B311E201548074E6543671DA51452B1A37FB18519AAA2&userId=de067d4b-60bf-4ec7-bb98-97b8cc6f69f5&sk=7rXtRl6Di2CAMu9Cv4IB2g%3D%3D', 'https://plu002.myturn1.top:8088/live/webcrichindi/media_14273.ts?vidictid=205676518129&id=119771&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a'], group: 'Sports', logo: 'https://i.imgur.com/eg7RgjP.png' },
+          { name: 'Star Sports Hindi', url: 'https://trl01.pctrls.nl/procricket_b/amlst:stream_2b_b2050000/chunklist.m3u8?vidictid=874350676714619&id=12&pk=A176AC038E6D9260C16B311E201548074E6543671DA51452B1A37FB18519AAA2&userId=de067d4b-60bf-4ec7-bb98-97b8cc6f69f5&sk=gTCfrkDelIHWD4tsa82r3Q%3D%3D', fallback: 'https://plu001.myturn1.top:8088/live/starsports01/playlist.m3u8?vidictid=205678693693&id=123144&pk=dae65c24ed1c2d2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a', group: 'Sports', logo: 'https://i.imgur.com/Js5Eg2V.png' },
+          { name: 'Star Sports 1', urls: ['https://plu001.myturn1.top:8088/live/webcricp01/playlist.m3u8?vidictid=205711368063&id=113431&pk=a312642c725fc0360dbee23c24324607809a90928621a75e1d377e74ab6c12a1de73e224004d64d13343cf9a37cd2f17440d34a6a3431b3666b0244a785686e6', 'https://plu001.myturn1.top:8088/live/starsports01/playlist.m3u8?vidictid=205678693693&id=123144&pk=dae65c24ed1c2dafbaaf90d9de16452b837f90efea61b6bac0a3f9a9e2aa9f97dc5bc5b75b3516eddea0faf52f1a49a8b4a07c722f2fb5bef24e947b0a88935a'], group: 'Sports', logo: 'https://i.imgur.com/Js5Eg2V.png' },
+          { name: 'Willow TV', urls: ['https://plu002.myturn1.top:8088/live/webcricn02/playlist.m3u8?vidictid=205714911028&id=115656&pk=a312642c725fc0360dbee23c24324607809a90928621a75e1d377e74ab6c12a1de73e224004d64d13343cf9a37cd2f17440d34a6a3431b3666b0244a785686e6', 'https://muc002.myturn1.top:8088/live/webcricn02/playlist.m3u8?vidictid=205727955977&id=115656&pk=9d9c359f9527d34ae528ccb70f1d438900c5822db4310c48ff85c528bf2dae0291836d4b2e2d7985b52707df5ebe13bb4d90f65b0f27abcf5b58d254f7435e97','https://plu002.myturn1.top:8088/live/webcricn02/playlist.m3u8?vidictid=205702692596&id=115656&pk=d7d71624bbb8fe06530cb7b7f4763611da5e4267b60d553d7d7a10af44bf4e2cc9e3decb932bf3815fa230e92e2631e5eff378f257476de67451dc5397b9b942', 'https://plu002.myturn1.top:8088/live/webcricwillow/playlist.m3u8?vidictid=205715679728&id=120375&pk=a312642c725fc0360dbee23c24324607809a90928621a75e1d377e74ab6c12a1de73e224004d64d13343cf9a37cd2f17440d34a6a3431b3666b0244a785686e6', 'https://mut001.myturn1.top:8088/live/webcricwillow/media_1533.ts?vidictid=205719927676&id=120375&pk=a312642c725fc0360dbee23c24324607809a90928621a75e1d377e74ab6c12a1de73e224004d64d13343cf9a37cd2f17440d34a6a3431b3666b0244a785686e6', 'https://muc001.myturn1.top:8088/live/webcrict10/playlist.m3u8?vidictid=205719481800&id=113947&pk=a312642c725fc0360dbee23c24324607809a90928621a75e1d377e74ab6c12a1de73e224004d64d13343cf9a37cd2f17440d34a6a3431b3666b0244a785686e6'], group: 'Sports', logo: 'https://i.imgur.com/MzxqTMf.png' },
+          { name: 'Sky Sports', urls: ['https://plu001.myturn1.top:8088/live/webcricp01/playlist.m3u8?vidictid=205711368063&id=113431&pk=a312642c725fc0360dbee23c24324607809a90928621a75e1d377e74ab6c12a1de73e224004d64d13343cf9a37cd2f17440d34a6a3431b3666b0244a785686e6', 'https://muc002.myturn1.top:8088/live/webcricsky/playlist.m3u8?vidictid=205722932535&id=121345&pk=9d9c359f9527d34ae528ccb70f1d438900c5822db4310c48ff85c528bf2dae0291836d4b2e2d7985b52707df5ebe13bb4d90f65b0f27abcf5b58d254f7435e97', 'https://mut001.myturn1.top:8088/live/webcricn04/playlist.m3u8?vidictid=205713317820&id=114607&pk=a312642c725fc0360dbee23c24324607809a90928621a75e1d377e74ab6c12a1de73e224004d64d13343cf9a37cd2f17440d34a6a3431b3666b0244a785686e6', 'https://plu002.myturn1.top:8088/live/webcricsky/playlist.m3u8?vidictid=205713757653&id=121345&pk=ab6dd2606245447c89e8f769b4ba9625bc4e041853821d8427bb2433b82258edde73e224004d64d13343cf9a37cd2f17440d34a6a3431b3666b0244a785686e6', 'https://muc002.myturn1.top:8088/live/webcricsky/playlist.m3u8?vidictid=205706406274&id=121345&pk=d7d71624bbb8fe06530cb7b7f4763611da5e4267b60d553d7d7a10af44bf4e2cc9e3decb932bf3815fa230e92e2631e5eff378f257476de67451dc5397b9b942'], group: 'Sports', logo: 'https://i.imgur.com/pTWblYk.png' }
+        ];
+        renderChannels();
+        return;
+      }
+      
+      isLiveMatchesMode = false;
+      
+      if (url) {
+        playlistUrlInput.value = url;
+        loadPlaylist();
+      }
+    }
+    
+    function loadIplstreams(url, title) {
+nowPlayingEl.innerHTML = title + ' <button onclick="popOutIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:10px;">Pop Out</button> <button onclick="pipIplstreams()" style="background:#4a9eff;border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;margin-left:5px;">🎬 PiP</button>';
+      
+      player.style.display = 'none';
+      let iframe = document.getElementById('yonoFrame');
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'yonoFrame';
+        iframe.style.cssText = 'width:100%;height:calc(100vh - 120px);border:none;';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
+        document.querySelector('.video-wrap').appendChild(iframe);
+        
+        // Try to remove ads after load
+        iframe.onload = () => {
+          try {
+            const doc = iframe.contentDocument;
+            // Hide common ad elements
+            const adSelectors = [
+              '.ads', '.ad', '[class*="ads-"]', '[id*="ads"]', 
+              '[class*="banner"]', '[id*="banner"]',
+              '[class*="sponsor"]', '[id*="sponsor"]',
+              '.google-ad', '.ad-container', '.ad-wrapper',
+              '[class*="popup"]', '[class*="modal"][class*="ad"]'
+            ];
+            adSelectors.forEach(sel => {
+              doc.querySelectorAll(sel).forEach(el => el.style.display = 'none');
+            });
+          } catch(e) {}
+        };
+      }
+      iframe.src = url;
+      iframe.style.display = 'block';
+      currentStreamUrl = url;
+    }
+    
+    let currentStreamUrl = '';
+    
+    function popOutIplstreams() {
+      if (currentStreamUrl) {
+        showFloatPlayer(currentStreamUrl, 'Stream');
+        document.getElementById('yonoFrame').style.display = 'none';
+        document.getElementById('yonoFrame').src = '';
+      }
+    }
+    
+    function pipIplstreams() {
+      const iframe = document.getElementById('yonoFrame');
+      if (!currentStreamUrl && iframe.src) {
+        currentStreamUrl = iframe.src;
+      }
+      if (currentStreamUrl) {
+        const pipWin = window.open(currentStreamUrl, 'pip', 'width=420,height=320,menubar=no,toolbar=no,location=no');
+        if (!pipWin) {
+          alert('Please allow popups to use PiP');
+        }
+      }
+    }
+
+    // Parse M3U
+    function parseM3U(text) {
+      const channels = [];
+      const lines = text.split(/\r?\n/);
+      let info = null;
+
+      for (const line of lines) {
+        const t = line.trim();
+        
+        if (t.startsWith('#EXTINF:') || t.startsWith('#EXTINF:-')) {
+          const parts = t.split(',');
+          const name = parts[1]?.trim() || 'Unknown';
+          const country = ((t.match(/tvg-country="([^"]*)"/) || [])[1] || '').toUpperCase();
+          const logo = (t.match(/tvg-logo="([^"]*)"/) || [])[1] || '';
+          const group = (t.match(/group-title="([^"]*)"/) || [])[1] || '';
+          info = { name, country, logo, group };
+        }
+        else if (info && !t.startsWith('#') && (t.includes('.m3u8') || t.includes('.m3u'))) {
+          // Generate logo URL if not provided
+          let logoUrl = info.logo;
+          if (!logoUrl || !logoUrl.startsWith('http')) {
+            const slug = info.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+            logoUrl = `https://raw.githubusercontent.com/iptv-org/logos/master/${info.country.toLowerCase()}/${slug}.png`;
+          }
+          channels.push({
+            ...info,
+            url: t,
+            logo: logoUrl
+          });
+          info = null;
+        }
+      }
+      return channels;
+    }
+
+    // Filter by category
+    function filterCategory(channels) {
+      if (activeCategory === 'all') return channels;
+      
+      const filters = {
+        'sports': /sports|cricket|football|soccer|espn|star|sony|bein|premier|laliga|bundesliga|serie|fox|sky|willow|ptv|golf|tennis|nba|nfl|hockey/i,
+        'news': /news|ndtv|abp|republic|aaj|tak|cnn|bbc|al|jazeera|times|now|india|tv18/i,
+        'movies': /movies|cinema|film|star|movie|bolawood|hollywood|bwood| Bolly/i,
+        'music': /music|mtun|hits|MTV|viva|channel.*v|song/i,
+        'entertainment': /entertainment|reality|tv|show|comedy|drama|star|life|zee|sony|colors/i,
+        'documentary': /documentary|discovery|national|geo|history|animal|planet/i
+      };
+      
+      const filter = filters[activeCategory];
+      if (!filter) return channels;
+      
+      return channels.filter(ch => 
+        filter.test(ch.name) || filter.test(ch.group)
+      );
+    }
+
+    // Render channels
+    function renderChannels() {
+      let filtered = allChannels;
+      
+      // Category filter
+      filtered = filterCategory(filtered);
+      
+      // Search filter
+      const search = searchInput.value.toLowerCase();
+      if (search) {
+        filtered = filtered.filter(ch => 
+          ch.name.toLowerCase().includes(search) ||
+          ch.country.toLowerCase().includes(search) ||
+          ch.group.toLowerCase().includes(search)
+        );
+      }
+
+      channelListEl.innerHTML = '';
+      
+      if (filtered.length === 0) {
+        channelListEl.innerHTML = '<div class="loading">No channels found</div>';
+        return;
+      }
+
+      filtered.forEach(ch => {
+        const div = document.createElement('div');
+        div.className = 'channel' + (currentChannel?.url === ch.url ? ' playing' : '');
+        
+        const logoDiv = document.createElement('div');
+        logoDiv.className = 'logo';
+        
+        if (ch.logo && ch.logo.startsWith('http')) {
+          const img = document.createElement('img');
+          img.src = ch.logo;
+          img.onerror = () => {
+            logoDiv.innerHTML = `<span>${ch.logo}</span>`;
+          };
+          logoDiv.appendChild(img);
+        } else if (ch.logo) {
+          // Emoji logo
+          logoDiv.innerHTML = `<span style="font-size:24px">${ch.logo}</span>`;
+        } else {
+          logoDiv.innerHTML = `<span>${flags[ch.country] || ch.name[0]}</span>`;
+        }
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'ch-info';
+        infoDiv.innerHTML = `<div class="ch-name">${ch.name}</div><div class="ch-country">${countries[ch.country] || ch.country || ch.group}</div>`;
+        
+        div.appendChild(logoDiv);
+        div.appendChild(infoDiv);
+        div.onclick = () => playChannel(ch);
+        // Prefetch on hover (300ms delay)
+        let hoverTimer;
+        div.onmouseenter = () => {
+          clearTimeout(hoverTimer);
+          hoverTimer = setTimeout(() => {
+            if (ch.urls || ch.url) {
+              prefetchUrl(ch.urls ? ch.urls[0] : ch.url);
+            }
+          }, 300);
+        };
+        div.onmouseleave = () => clearTimeout(hoverTimer);
+        channelListEl.appendChild(div);
+      });
+    }
+
+    // Get stream URL
+    function getStreamUrl(url) {
+      return url;
+    }
+
+// Play channel - fast switch with multiple URLs
+    let urlIndex = 0;
+    function playChannel(ch, newUrlIndex = null) {
+      currentChannel = ch;
+      
+      // Support both single url/fallback and array of urls
+      const urls = ch.urls || [ch.url, ch.fallback].filter(Boolean);
+      if (newUrlIndex !== null) urlIndex = newUrlIndex;
+      
+      if (urlIndex >= urls.length) {
+        nowPlayingEl.innerHTML = `❌ All failed: ${ch.name} <button onclick="retryChannel()" style="background:#e67e22;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:10px;">🔄 Retry All</button>`;
+        return;
+      }
+      
+      const url = urls[urlIndex];
+      const label = urlIndex > 0 ? ` (URL ${urlIndex + 1})` : '';
+      const switchBtns = urls.length > 1 ? urls.map((u, i) => 
+        `<button onclick="playChannel(currentChannel, ${i})" style="background:${i === urlIndex ? '#4a9eff' : '#666'};border:none;color:#fff;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:5px;">${i + 1}</button>`
+      ).join('') : '';
+      
+      nowPlayingEl.innerHTML = `Playing: ${ch.name}${label} <button onclick="togglePiP()" style="background:#4a9eff;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:10px;">PiP</button>${switchBtns} <button onclick="toggleMiniPlayer()" style="background:#666;border:none;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;margin-left:5px;">Mini</button>`;
+      
+      // Fast cleanup
+      if (hls) { hls.stopLoad(); hls.destroy(); hls = null; }
+      player.pause();
+      player.removeAttribute('src');
+      player.load();
+      
+      // Hide iframe
+      let iframe = document.getElementById('yonoFrame');
+      if (iframe) { iframe.src = 'about:blank'; iframe.style.display = 'none'; }
+      player.style.display = 'block';
+      
+      // Get all URLs for this channel
+      const allUrls = ch.urls || [ch.url, ch.fallback].filter(Boolean);
+      const currentUrl = allUrls[urlIndex];
+      
+      // Check if HLS.js is needed
+      if (currentUrl.includes('.m3u8')) {
+        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+          // Fast load: destroy old, create new with optimized config
+          if (hls) { hls.destroy(); hls = null; }
+          hls = new Hls({
+            fragLoadingMaxRetry: 1,
+            manifestLoadingMaxRetry: 1,
+            startFragPrefetch: true,
+            lowLatencyMode: false,
+            backBufferLength: 30
+          });
+          hls.loadSource(currentUrl);
+          hls.attachMedia(player);
+          hls.on(Hls.Events.ERROR, function(event, data) {
+            if (data.fatal && urlIndex < allUrls.length - 1) {
+              urlIndex++;
+              playChannel(ch);
+            }
+          });
+          player.play().catch(() => {
+            if (urlIndex < allUrls.length - 1) {
+              urlIndex++;
+              playChannel(ch);
+            }
+          });
+        } else {
+          player.style.display = 'none';
+          if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'yonoFrame';
+            iframe.style.cssText = 'width:100%;height:calc(100vh - 120px);border:none;';
+            iframe.setAttribute('allowfullscreen', '');
+            document.querySelector('.video-wrap').appendChild(iframe);
+          }
+          iframe.src = currentUrl;
+          iframe.style.display = 'block';
+        }
+      } else if (currentUrl.includes('.ts') || currentUrl.includes('/live/') && currentUrl.includes('?')) {
+        player.style.display = 'none';
+        if (!iframe) {
+          iframe = document.createElement('iframe');
+          iframe.id = 'yonoFrame';
+          iframe.style.cssText = 'width:100%;height:calc(100vh - 120px);border:none;';
+          iframe.setAttribute('allowfullscreen', '');
+          document.querySelector('.video-wrap').appendChild(iframe);
+        }
+        iframe.onerror = () => {
+          if (urlIndex < allUrls.length - 1) {
+            urlIndex++;
+            playChannel(ch);
+          }
+        };
+iframe.src = currentUrl;
+        iframe.style.display = 'block';
+      } else {
+        player.src = currentUrl;
+        player.play().catch(() => {
+          if (urlIndex < allUrls.length - 1) {
+            urlIndex++;
+            playChannel(ch);
+          }
+        });
+      }
+    }
+    
+// Picture-in-Picture (toggle)
+    async function togglePiP() {
+      if (document.pictureInPictureElement) {
+        document.exitPictureInPicture();
+      } else if (player.src || player.currentSrc) {
+        try {
+          player.autoPictureInPicture = true;
+          await player.requestPictureInPicture();
+        } catch(e) {
+          pipIplstreams();
+        }
+      }
+    }
+    
+    // Mini player mode
+    let miniMode = false;
+    function toggleMiniPlayer() {
+      miniMode = !miniMode;
+      const videoWrap = document.querySelector('.video-wrap');
+      if (miniMode) {
+        videoWrap.style.cssText = 'position:fixed;bottom:20px;right:20px;width:320px;height:180px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.5);border-radius:12px;overflow:hidden;';
+      } else {
+        videoWrap.style.cssText = '';
+      }
+    }
+    
+    // Retry all URLs from start
+    function retryChannel() {
+      if (currentChannel) {
+        urlIndex = 0;
+        playChannel(currentChannel);
+      }
+    }
+    
+    // Channel info overlay
+    function showChannelInfo() {
+      const wrap = document.querySelector('.video-wrap');
+      let info = document.getElementById('chInfo');
+      if (!info) {
+        info = document.createElement('div');
+        info.id = 'chInfo';
+        info.style.cssText = 'position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.7);color:#fff;padding:10px 15px;border-radius:8px;font-size:14px;z-index:100;';
+        wrap.appendChild(info);
+      }
+      info.innerHTML = `<strong>${currentChannel?.name || ''}</strong><br><small>Tap to show info</small>`;
+      info.style.display = 'block';
+      setTimeout(() => info.style.display = 'none', 3000);
+    }
+    player.addEventListener('loadedmetadata', showChannelInfo);
+    
+    // Setup MediaSession for auto-PiP on background
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.setActionHandler('enterpictureinpicture', () => {
+        if (player.src || player.currentSrc) {
+          player.requestPictureInPicture();
+        }
+      });
+    }
+    
+    // Visibility change for auto-PiP
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && (player.src || player.currentSrc) && !document.pictureInPictureElement) {
+        try {
+          player.autoPictureInPicture = true;
+          player.requestPictureInPicture();
+        } catch(e) {}
+      }
+    });
+    
+    // Load playlist
+    async function loadPlaylist() {
+      const url = playlistUrlInput.value.trim();
+      if (!url) return;
+      
+      // YonoTV - direct iframe, no playlist to fetch
+      if (url.includes('yonotv.pages.dev')) {
+        allChannels = [{ name: 'YonoTV Live', url: url, group: 'Live' }];
+        renderChannels();
+        return;
+      }
+      
+      channelListEl.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading channels...</div>';
+      
+      try {
+        let fetchUrl = url;
+        // Check if it's a direct m3u8 URL - play directly
+        if (url.endsWith('.m3u8') && (url.startsWith('http://') || url.includes('.'))) {
+          // Direct m3u8 - play directly without fetching playlist
+          allChannels = [{ name: 'Live Stream', url: url, group: 'Live', logo: '' }];
+          renderChannels();
+          return;
+        }
+        
+        // Use CORS proxy for other URLs
+        if (!url.includes(window.location.host) && !url.includes('localhost')) {
+          fetchUrl = url;
+        }
+        
+        const response = await fetch(fetchUrl);
+        if (!response.ok) throw new Error('Failed to fetch: ' + response.status);
+        
+        const text = await response.text();
+        if (!text || text.length < 100) throw new Error('Empty or invalid response');
+        
+        // Check if it's a direct HLS stream (live stream, not a channel list)
+        if (text.includes('#EXT-X-VERSION') || text.includes('#EXT-X-TARGETDURATION') || (!text.includes('#EXTINF:') && text.includes('.ts'))) {
+          // Direct HLS stream - play directly
+          allChannels = [{ name: 'Live Stream', url: url, group: 'Live', logo: '' }];
+          renderChannels();
+          return;
+        }
+        
+        allChannels = parseM3U(text);
+        
+        if (allChannels.length === 0) {
+          channelListEl.innerHTML = '<div class="loading">No channels found in playlist</div>';
+          return;
+        }
+        
+        // Sort by name
+        allChannels.sort((a, b) => a.name.localeCompare(b.name));
+        
+        renderChannels();
+      } catch (error) {
+        console.error('Error:', error);
+        channelListEl.innerHTML = `<div class="loading" style="color:#f55">Error: ${error.message}<br><br>Tip: Check console for details</div>`;
+      }
+    }
+
+    // Debounced search
+    let searchTimeout;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(renderChannels, 150);
+    });
+    
+    playlistUrlInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') loadPlaylist();
+    });
+    
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        activeCategory = chip.dataset.cat;
+        renderChannels();
+      });
+    });
+
+    // Auto-load default playlist
+    // Automatically select Premium Channels and play Star Sports 1 on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('presetSelect').value = '__PREMIUM_CHANNELS__';
+      loadPreset();
+      setTimeout(() => {
+        const hdIpl = allChannels.find(ch => ch.name === 'HD IPL');
+        if (hdIpl) {
+          playChannel(hdIpl);
+        }
+      }, 1000);
+    });
+    loadPlaylist();
+    
+    // Floating Player Functions
+    let floatSizes = ['small', 'medium', 'large'];
+    let currentSize = 1;
+    let isMinimized = false;
+    let currentFloatUrl = '';
+    
+    function showFloatPlayer(url, title) {
+      const floatPlayer = document.getElementById('floatPlayer');
+      const floatIframe = document.getElementById('floatIframe');
+      const floatTitle = document.getElementById('floatTitle');
+      currentFloatUrl = url;
+      
+floatIframe.onload = () => {
+        try {
+          const doc = floatIframe.contentDocument;
+          // Hide common ad elements
+          const adSelectors = [
+            '.ads', '.ad', '[class*="ads-"]', '[id*="ads"]', 
+            '[class*="banner"]', '[id*="banner"]',
+            '[class*="sponsor"]', '.google-ad', '.ad-container'
+          ];
+          adSelectors.forEach(sel => {
+            doc.querySelectorAll(sel).forEach(el => el.style.display = 'none');
+          });
+          // Inject CSS to hide more ads
+          const style = doc.createElement('style');
+          style.textContent = '.ads, .ad, [class*="ads-"], [id*="ads"], [class*="banner"], [class*="sponsor"], .google-ad, .ad-container, .ad-wrapper, [class*="popup"][class*="ad"] { display: none !important; visibility: hidden !important; opacity: 0 !important; }';
+          doc.head.appendChild(style);
+        } catch(e) {}
+      };
+      
+      floatIframe.src = url;
+      floatTitle.textContent = title || 'Stream';
+      floatPlayer.style.display = 'block';
+      floatPlayer.classList.remove('collapsed');
+    }
+    
+    function toggleFullscreen() {
+      const floatPlayer = document.getElementById('floatPlayer');
+      if (floatPlayer.classList.contains('fullscreen')) {
+        floatPlayer.classList.remove('fullscreen');
+        floatPlayer.style.cssText = '';
+        floatPlayer.classList.add('size-medium');
+      } else {
+        floatPlayer.classList.remove('collapsed');
+        floatPlayer.classList.add('fullscreen');
+        floatPlayer.style.cssText = 'display:block;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;';
+      }
+    }
+    
+    function closeFloat() {
+      document.getElementById('floatPlayer').style.display = 'none';
+      document.getElementById('floatIframe').src = '';
+    }
+    
+    function minimizeFloat() {
+      const floatPlayer = document.getElementById('floatPlayer');
+      floatPlayer.classList.toggle('collapsed');
+      isMinimized = floatPlayer.classList.contains('collapsed');
+    }
+    
+    function toggleFloatSize() {
+      const floatPlayer = document.getElementById('floatPlayer');
+      floatSizes.forEach(s => floatPlayer.classList.remove('size-' + s));
+      currentSize = (currentSize + 1) % floatSizes.length;
+      floatPlayer.classList.add('size-' + floatSizes[currentSize]);
+    }
+    
+    async function floatPip() {
+      if (currentFloatUrl) {
+        // Open our website in popup with stream param
+        const popupUrl = window.location.href.split('?')[0] + '?stream=' + encodeURIComponent(currentFloatUrl);
+        window.open(popupUrl, 'stream', 'width=420,height=320,menubar=no,toolbar=no,location=no,scrollbars=no');
+      }
+    }
+    
+    // Floating Player Drag
+    const floatPlayer = document.getElementById('floatPlayer');
+    const floatControls = floatPlayer.querySelector('.float-controls');
+    let isDragging = false, startX, startY, initialX, initialY;
+    
+    floatControls.addEventListener('mousedown', (e) => { isDragging = true; startX = e.clientX; startY = e.clientY; const rect = floatPlayer.getBoundingClientRect(); initialX = rect.left; initialY = rect.top; floatPlayer.style.right = 'auto'; });
+    document.addEventListener('mousemove', (e) => { if (!isDragging) return; e.preventDefault(); const dx = e.clientX - startX, dy = e.clientY - startY; floatPlayer.style.left = (initialX + dx) + 'px'; floatPlayer.style.top = (initialY + dy) + 'px'; });
+    document.addEventListener('mouseup', () => isDragging = false);
+    
+    floatControls.addEventListener('touchstart', (e) => { isDragging = true; startX = e.touches[0].clientX; startY = e.touches[0].clientY; const rect = floatPlayer.getBoundingClientRect(); initialX = rect.left; initialY = rect.top; floatPlayer.style.right = 'auto'; });
+    document.addEventListener('touchmove', (e) => { if (!isDragging) return; e.preventDefault(); const dx = e.touches[0].clientX - startX, dy = e.touches[0].clientY - startY; floatPlayer.style.left = (initialX + dx) + 'px'; floatPlayer.style.top = (initialY + dy) + 'px'; }, { passive: false });
+    document.addEventListener('touchend', () => isDragging = false);
+    
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; document.getElementById('installBtn').style.display = 'inline-block'; });
+    function installApp() { if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.then(() => { deferredPrompt = null; }); } }
+    
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(r => console.log('SW registered')).catch(e => console.log('SW error', e));
+    }
+  </script>
+</body>
+</html>
